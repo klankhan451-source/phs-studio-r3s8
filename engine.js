@@ -250,6 +250,7 @@ function fillTemplate(C, levelId, template, rng, ctx) {
     var pool = cum.nouns.filter(function (n) { return !used[n.w]; });
     if (!pool.length) pool = cum.nouns;
     var n;
+    pool = themed(pool);
     if (ctx && ctx.nounUse) {
       var min = Math.min.apply(null, pool.map(function (x) { return ctx.nounUse[x.w] || 0; }));
       var least = pool.filter(function (x) { return (ctx.nounUse[x.w] || 0) === min; });
@@ -262,6 +263,17 @@ function fillTemplate(C, levelId, template, rng, ctx) {
     return n;
   }
   var target = null;
+  /* word-theme filter (ctx.themeCats): noun slots prefer
+     nouns from the chosen theme's categories while they
+     last, then fall back to the full bank — generation
+     never starves, it just leans themed first. */
+  function themed(pool) {
+    if (ctx && ctx.themeCats && ctx.themeCats.length) {
+      var t = pool.filter(function (n) { return ctx.themeCats.indexOf(n.c) !== -1; });
+      if (t.length) return t;
+    }
+    return pool;
+  }
   function plural(w) { return /(s|x|ch|sh)$/.test(w) ? w + 'es' : w + 's'; }
   var name1 = pick(rng, cum.names);
   var name2 = pick(rng, cum.names.filter(function (n) { return n !== name1; }).concat(name1));
@@ -478,6 +490,10 @@ function makeCompItem(C, levelId, rng, usedSet, ctx) {
     var nounPool = cum.nouns.filter(function (n) {
       return nounsInCategory(C, levelId, n.c).length >= 3;
     });
+    if (ctx && ctx.themeCats && ctx.themeCats.length) {
+      var themedPool = nounPool.filter(function (n) { return ctx.themeCats.indexOf(n.c) !== -1; });
+      if (themedPool.length) nounPool = themedPool;
+    }
     if (!nounPool.length) return null;
     /* prefer the least-used scene picture in the book */
     var noun = pick(rng, nounPool);
@@ -823,7 +839,8 @@ function buildBookData(cfg, C) {
   var ctx = {
     pairs: {}, nounUse: {}, picUse: {}, targetUse: {},
     pack: pack ? pack.id : 'classic', requireTarget: false,
-    customPics: customPics, picVariants: cfg.picVariants || {}
+    customPics: customPics, picVariants: cfg.picVariants || {},
+    themeCats: (cfg.themeCats && cfg.themeCats.length) ? cfg.themeCats.slice() : null
   };
 
   (cfg.activities || []).forEach(function (act) {
@@ -923,11 +940,82 @@ function buildBookData(cfg, C) {
   return {
     id: bookId, level: level.id, levelName: level.name, patterns: level.patterns,
     title: cfg.title || 'My Reading Book', childName: cfg.childName || '',
-    pack: ctx.pack, deco: pack && pack.deco ? pack.deco : null,
+    pack: ctx.pack, themeCats: ctx.themeCats, deco: pack && pack.deco ? pack.deco : null,
     customPics: customPics, customWords: customWords, customDeco: decoMap,
     picVariants: ctx.picVariants,
     focusWords: cum.sight.slice(), sections: sections, answerKeys: answerKeys, seed: seed
   };
+}
+
+/*
+ * finalizeBookData(C, data) — re-derive everything that
+ * depends on the (possibly buyer-edited) items, right before
+ * a book is built:
+ *   - Read & Circle: if an edit left the correct word OUT of
+ *     the printed sentence, and exactly one option word IS in
+ *     the sentence, that word becomes the correct one — the
+ *     answer key can then never name a word the sentence
+ *     does not contain.
+ *   - Sentence Builder: the answer must be a word in the
+ *     printed sentence (if an edit stranded the old answer,
+ *     the first bank noun in the sentence takes its place);
+ *     the picture, the blanked sentence and the choices are
+ *     rebuilt from the answer.
+ *   - Story Sequencing: printed step sentences are synced
+ *     from the (possibly edited) correct order.
+ *   - Answer keys are re-derived from the finished items.
+ * Pure with respect to its inputs' identity: it mutates and
+ * returns `data`. Deterministic (seeded from the book id).
+ */
+function finalizeBookData(C, data) {
+  if (!data || !data.sections) return data;
+  var CW = contentWithCustomWords(C, data.customWords || []);
+  var rng = makeRng(data.id + '|build');
+  function findNoun(word) {
+    for (var i = 0; i < (data.customWords || []).length; i++) {
+      if (data.customWords[i].w === word) {
+        return { w: word, e: data.customWords[i].img, c: data.customWords[i].c, custom: true };
+      }
+    }
+    return nounByWord(CW, data.level, word);
+  }
+  function picOf(noun) {
+    return picFor(C, data.pack, noun, data.customPics, data.picVariants);
+  }
+  data.sections.forEach(function (section) {
+    section.items.forEach(function (item) {
+      if (item.type === 'circle') {
+        var words = {};
+        sentenceWords(item.sentence).forEach(function (w) { words[w.toLowerCase()] = true; });
+        if (item.correct && !words[String(item.correct.w).toLowerCase()]) {
+          var inSent = (item.options || []).filter(function (o) { return words[String(o.w).toLowerCase()]; });
+          if (inSent.length === 1) item.correct = { w: inSent[0].w, e: inSent[0].e };
+        }
+      } else if (item.type === 'builder') {
+        var inSentence = new RegExp('\\b' + String(item.answer).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i')
+          .test(item.sentence || '');
+        if (!inSentence) {
+          var candidates = nounsInSentence(CW, data.level, item.sentence);
+          if (candidates.length) item.answer = candidates[0].w;
+        }
+        var noun = findNoun(item.answer);
+        if (noun && new RegExp('\\b' + item.answer + '\\b', 'i').test(item.sentence || '')) {
+          item.pic = { w: noun.w, e: picOf(noun) };
+          item.blanked = item.sentence.replace(new RegExp('\\b' + item.answer + '\\b', 'i'), '______');
+          var ds = distractorsFor(CW, data.level, item.sentence, noun, rng,
+            { pack: data.pack, customPics: data.customPics, picVariants: data.picVariants });
+          item.choices = shuffle([noun.w].concat(ds.map(function (x) { return x.w; })), rng);
+        }
+      } else if (item.type === 'seq') {
+        item.printed = item.printed.map(function (p) {
+          var match = item.correctOrder.filter(function (st) { return st.pic === p.pic; })[0];
+          return match ? { pic: p.pic, s: match.s } : p;
+        });
+      }
+    });
+  });
+  data.answerKeys = deriveAnswerKeys(data.sections);
+  return data;
 }
 
 /* Answer keys from the printed rows themselves. */
@@ -974,7 +1062,7 @@ var PhonicsEngine = {
   validateCustomWord: validateCustomWord,
   contentWithCustomWords: contentWithCustomWords, customDecoMap: customDecoMap,
   parseCustomSentences: parseCustomSentences, makeCustomItems: makeCustomItems,
-  buildBookData: buildBookData, deriveAnswerKeys: deriveAnswerKeys,
+  buildBookData: buildBookData, finalizeBookData: finalizeBookData, deriveAnswerKeys: deriveAnswerKeys,
   formatCircleForEditor: formatCircleForEditor
 };
 
