@@ -54,7 +54,7 @@ if (typeof module !== 'undefined' && module.exports) {
   /* In the browser these come from the script tags; in Node
      (unit tests) they are required directly. */
   var C = typeof PHS_LEVELS !== 'undefined'
-    ? { PHS_LEVELS: PHS_LEVELS, PHS_SEQUENCES: PHS_SEQUENCES, PHS_ACTIVITIES: PHS_ACTIVITIES, phsLevelById: phsLevelById, phsActivityById: phsActivityById, phsCumulative: phsCumulative, PHS_PICTURE_PACKS: PHS_PICTURE_PACKS, phsPicturePackById: phsPicturePackById, PHS_PIC_LIB: typeof PHS_PIC_LIB !== 'undefined' ? PHS_PIC_LIB : {} }
+    ? { PHS_LEVELS: PHS_LEVELS, PHS_SEQUENCES: PHS_SEQUENCES, PHS_ACTIVITIES: PHS_ACTIVITIES, phsLevelById: phsLevelById, phsActivityById: phsActivityById, phsCumulative: phsCumulative, PHS_PICTURE_PACKS: PHS_PICTURE_PACKS, phsPicturePackById: phsPicturePackById, PHS_PIC_LIB: typeof PHS_PIC_LIB !== 'undefined' ? PHS_PIC_LIB : {}, PHS_STORYBOOK: typeof PHS_STORYBOOK !== 'undefined' ? PHS_STORYBOOK : {} }
     : require('./content.js');
   var D = typeof PHS_DESIGNS !== 'undefined' ? { PHS_DESIGNS: PHS_DESIGNS, phsDesignById: phsDesignById } : require('./designs.js');
   var E = typeof PhonicsEngine !== 'undefined' ? PhonicsEngine : require('./engine.js');
@@ -486,10 +486,18 @@ if (typeof module !== 'undefined' && module.exports) {
   function generateDraft(note) {
     var s = readBuildSettings();
     var seed = 'L' + s.level + '|' + s.title + '|' + s.childName + '|v' + seedVariant;
-    /* rotate the illustrated pictures: this book uses a
-       different variant than the last book for every word
-       that has more than one */
-    var variantSel = E.nextVariantSelection(C, s.level, picRotation.last, picRotation.nonce);
+    /* rotate the pictures: this book uses a different
+       picture than the last book for every word that has
+       more than one. Under the Storybook pack, words with
+       a storybook illustration get one extra candidate, so
+       they alternate between the storybook picture and
+       their illustrated artwork. */
+    var extra = null;
+    if (s.pack === 'storybook' && C.PHS_STORYBOOK) {
+      extra = {};
+      Object.keys(C.PHS_STORYBOOK).forEach(function (w) { extra[w] = 1; });
+    }
+    var variantSel = E.nextVariantSelection(C, s.level, picRotation.last, picRotation.nonce, extra);
     draft = E.buildBookData({
       level: s.level, title: s.title, childName: s.childName, seed: seed,
       pack: s.pack,
@@ -697,7 +705,7 @@ if (typeof module !== 'undefined' && module.exports) {
       card.innerHTML =
         '<span class="dc-preview" style="background:' + des.coverBg + '">' +
         '<span class="dc-band" style="background:' + des.bandBg + '"></span>' +
-        des.motif +
+        '<span class="dc-hero">' + (des.hero || [des.motif]).join(' ') + '</span>' +
         '<span class="dc-cluster">' + des.cluster.join(' ') + '</span></span>' +
         '<span class="dc-name">' + escapeHtml(des.name) + '</span>';
       card.addEventListener('click', function () {
@@ -774,6 +782,12 @@ if (typeof module !== 'undefined' && module.exports) {
     if (line) lines.push(line);
     return lines;
   }
+  /* PNG export follows the same master cover template as
+     the printed cover (series pill · corner level badge ·
+     big title · subtitle · belongs-to ribbon · hero row ·
+     brand footband). Canvas cannot reproduce the printed
+     cover's layered gradients or the what's-inside card, so
+     those two stay print-only. */
   function doPng() {
     if (!builtBook || !draft) return;
     var d = builtBook.design, opts = builtBook.opts;
@@ -789,39 +803,63 @@ if (typeof module !== 'undefined' && module.exports) {
     ctx.lineWidth = 3;
     roundRect(ctx, 85, 85, W - 170, H - 170, 20); ctx.stroke();
     ctx.textAlign = 'center';
+    /* series pill */
     ctx.fillStyle = d.headerBg;
-    var badge = '★ PHONICSSTRIP STUDIO PRO ★';
-    ctx.font = '600 36px Arial';
-    var bw = ctx.measureText(badge).width + 90;
-    roundRect(ctx, W / 2 - bw / 2, 150, bw, 78, 39); ctx.fill();
+    var badge = 'EARLY READER SERIES';
+    ctx.font = '600 38px Arial';
+    var bw = ctx.measureText(badge).width + 100;
+    roundRect(ctx, W / 2 - bw / 2, 140, bw, 80, 40); ctx.fill();
     ctx.fillStyle = d.headerText;
-    ctx.fillText(badge, W / 2, 202);
-    ctx.font = '190px "Segoe UI Emoji", sans-serif';
-    ctx.fillText(d.motif || '📚', W / 2, 520);
-    ctx.font = '64px "Segoe UI Emoji", sans-serif';
-    ctx.fillText((d.cluster || []).join('  '), W / 2, 610);
-    ctx.fillStyle = d.headerBg === '#ffffff' ? d.cellText : d.headerBg;
-    ctx.font = 'bold 104px ' + d.headerFont;
-    var lines = wrapLines(ctx, draft.title, W - 340);
-    var y = 700;
-    lines.forEach(function (ln) { ctx.fillText(ln, W / 2, y); y += 118; });
-    ctx.font = '52px ' + d.cellFont;
-    ctx.fillStyle = d.cellText;
-    ctx.fillText(draft.levelName, W / 2, y + 20); y += 100;
-    ctx.font = 'italic 44px ' + d.cellFont;
-    ctx.fillText(draft.patterns, W / 2, y); y += 110;
-    if (draft.childName) {
-      ctx.font = '56px ' + d.cellFont;
-      ctx.fillText('For ' + draft.childName, W / 2, y); y += 100;
-    }
-    ctx.font = 'bold 44px ' + d.cellFont;
+    ctx.fillText(badge, W / 2, 193);
+    /* corner level badge */
     ctx.fillStyle = d.accent;
-    ctx.fillText('100% DECODABLE · ' + draft.sections.map(function (s) { return s.activity.name; }).join(' · '), W / 2, y);
+    roundRect(ctx, W - 500, 250, 380, 118, 20); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 40px ' + d.headerFont;
+    ctx.fillText(draft.levelName, W - 310, 300);
+    ctx.font = '30px Arial';
+    ctx.fillText('AGES 4–7', W - 310, 345);
+    /* title — the largest element */
+    ctx.fillStyle = d.headerBg === '#ffffff' ? d.cellText : d.headerBg;
+    ctx.font = 'bold 112px ' + d.headerFont;
+    var lines = wrapLines(ctx, draft.title, W - 340);
+    var y = 330;
+    lines.forEach(function (ln) { ctx.fillText(ln, W / 2, y); y += 126; });
+    ctx.font = '48px ' + d.cellFont;
+    ctx.fillStyle = d.cellText;
+    ctx.fillText(draft.patterns, W / 2, y + 6); y += 84;
+    ctx.font = '600 54px ' + d.cellFont;
+    ctx.fillStyle = d.accent;
+    ctx.fillText('Phonics • Sounds • First Words', W / 2, y); y += 78;
+    ctx.font = 'bold 40px ' + d.cellFont;
+    ctx.fillText('✓ 100% DECODABLE · ✓ ANSWER KEYS INSIDE', W / 2, y); y += 96;
+    /* belongs-to ribbon */
+    var belongs = 'This book belongs to: ' + (draft.childName || '____________');
+    ctx.font = '52px ' + d.cellFont;
+    var rw = ctx.measureText(belongs).width + 110;
+    ctx.fillStyle = d.accent;
+    roundRect(ctx, W / 2 - rw / 2, y - 58, rw, 92, 46); ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(belongs, W / 2, y + 6); y += 130;
+    /* hero stage: soft ground ellipse + the design's hero row */
+    ctx.fillStyle = d.accent;
+    ctx.globalAlpha = 0.16;
+    ctx.beginPath();
+    ctx.ellipse(W / 2, y + 210, 560, 190, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    var hero = (d.hero && d.hero.length ? d.hero : [d.motif || '📚']);
+    ctx.font = '190px "Segoe UI Emoji", sans-serif';
+    ctx.fillText(hero[0], W / 2, y + 240);
+    if (hero.length > 1) {
+      ctx.font = '120px "Segoe UI Emoji", sans-serif';
+      ctx.fillText(hero.slice(1).join('  '), W / 2, y + 400);
+    }
+    /* brand footband */
     ctx.fillStyle = d.headerBg;
     roundRect(ctx, 150, H - 330, W - 300, 118, 18); ctx.fill();
     ctx.fillStyle = d.headerText;
     ctx.font = '42px ' + d.cellFont;
-    ctx.fillText(d.tagline || 'Read · Circle · Grow', W / 2, H - 256);
+    ctx.fillText((d.tagline || 'Read · Circle · Grow') + ' — PhonicsStrip Studio Pro', W / 2, H - 256);
     ctx.fillStyle = d.cellText;
     ctx.font = '40px ' + d.cellFont;
     ctx.fillText(opts.business || 'Songlap Deals', W / 2, H - 140);
@@ -852,6 +890,7 @@ if (typeof module !== 'undefined' && module.exports) {
       title: $('wrap-title').value || 'My Reading Book',
       subtitle: $('wrap-subtitle').value,
       author: $('wrap-author').value || 'Songlap Deals',
+      level: draft ? draft.level : 1,
       levelLine: draft ? draft.levelName : 'Level 1 · Short A',
       insideList: inside,
       blurb: 'Every sentence in this book is 100% decodable: only this level’s sounds plus the focus words. The three pictures on each strip come from the same group, so young readers read the words — not guess.'
@@ -924,7 +963,7 @@ if (typeof module !== 'undefined' && module.exports) {
     $('level-select').value = st.level;
     $('in-title').value = st.title || '';
     $('in-child').value = st.childName || '';
-    $('pack-select').value = st.pack || 'classic';
+    $('pack-select').value = st.pack || 'storybook';
     updatePackChrome();
     $('custom-text').value = st.customText || '';
     customPics = st.customPics || {};
@@ -1000,7 +1039,7 @@ if (typeof module !== 'undefined' && module.exports) {
       opt.value = p.id; opt.textContent = p.name;
       pSel.appendChild(opt);
     });
-    pSel.value = 'illustrated';
+    pSel.value = 'storybook';
     pSel.addEventListener('change', function () { updatePackChrome(); markDirty(); });
     loadPicRotation();
     $('shuffle-pics-btn').addEventListener('click', function () {
