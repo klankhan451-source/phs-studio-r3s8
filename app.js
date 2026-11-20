@@ -248,7 +248,7 @@ if (typeof module !== 'undefined' && module.exports) {
        padding off this attribute */
     document.body.dataset.tab = name;
     if ((name === 'content' || name === 'book') && buildDirty) {
-      generateDraft('Settings changed — items were regenerated and edits reset.');
+      generateDraft('Settings changed — the pages were remade and your edits were reset.');
     }
     if (name === 'book') updatePrintCheck();
   }
@@ -502,10 +502,10 @@ if (typeof module !== 'undefined' && module.exports) {
   function updateLevelChrome() {
     var lv = currentLevel();
     var cum = C.phsCumulative(lv.id);
-    $('level-info').textContent = lv.patterns + ' · ' + cum.nouns.length + ' reading words, ' +
-      cum.verbs.length + ' action words — every level keeps all earlier sounds.';
-    $('level-sight').textContent = 'Focus words (sight words) so far: ' + cum.sight.join(' · ');
-    $('seed-note').textContent = 'Sentence set #' + seedVariant + ' for this book.';
+    $('level-info').textContent = 'Sounds in this level: ' + lv.patterns + ' · ' + cum.nouns.length + ' reading words and ' +
+      cum.verbs.length + ' action words to practise.';
+    $('level-sight').textContent = 'Words to learn by heart so far (they can’t be sounded out): ' + cum.sight.join(' · ');
+    $('seed-note').textContent = 'This book uses sentence mix #' + seedVariant + ' — press the button for a different mix of sentences.';
     syncLevelCards();
   }
 
@@ -521,7 +521,7 @@ if (typeof module !== 'undefined' && module.exports) {
       row.innerHTML =
         '<div class="game-head"><label class="check"><input type="checkbox" class="act-check" ' +
         (checked ? 'checked' : '') + '> ' + def.name + '</label>' +
-        '<span class="count-field">Items <input type="number" class="act-count" min="0" max="60" value="' + count + '"></span></div>' +
+        '<span class="count-field">How many <input type="number" class="act-count" min="0" max="60" value="' + count + '"></span></div>' +
         '<p class="game-blurb">' + def.blurb + '</p>';
       list.appendChild(row);
       function sync() { row.classList.toggle('on', row.querySelector('.act-check').checked); markDirty(); }
@@ -597,8 +597,8 @@ if (typeof module !== 'undefined' && module.exports) {
     renderEditor();
     updateThemeNote();
     if (note) $('editor-status').textContent = note;
-    $('build-status').textContent = 'Draft ready: ' + draft.sections.reduce(function (a, x) { return a + x.items.length; }, 0) +
-      ' items. Review them in the Content editor, then build the book.';
+    $('build-status').textContent = 'Your pages are ready: ' + draft.sections.reduce(function (a, x) { return a + x.items.length; }, 0) +
+      ' activities written. Press “Generate my book” and your book appears here.';
     updatePrintCheck();
     scheduleAutosave();
   }
@@ -691,8 +691,8 @@ if (typeof module !== 'undefined' && module.exports) {
         '<input type="text" class="ed-sentence" value="' + escapeAttr(item.sentence) + '">' +
         '<div class="ed-pics">' +
         '<label class="ed-pic">Correct picture ' + thumb + '<select class="ed-correct">' + nounOptions(item.correct.w) + '</select></label>' +
-        '<label class="ed-pic">Near-miss 1 <select class="ed-d1">' + distractorOptions(itemCat(item), others[0] && others[0].w, item.correct.w, item.sentence) + '</select></label>' +
-        '<label class="ed-pic">Near-miss 2 <select class="ed-d2">' + distractorOptions(itemCat(item), others[1] && others[1].w, item.correct.w, item.sentence) + '</select></label>' +
+        '<label class="ed-pic">Spare picture 1 <select class="ed-d1">' + distractorOptions(itemCat(item), others[0] && others[0].w, item.correct.w, item.sentence) + '</select></label>' +
+        '<label class="ed-pic">Spare picture 2 <select class="ed-d2">' + distractorOptions(itemCat(item), others[1] && others[1].w, item.correct.w, item.sentence) + '</select></label>' +
         '</div>';
       row.querySelector('.ed-sentence').addEventListener('change', function (ev) { item.sentence = ev.target.value; });
       row.querySelector('.ed-correct').addEventListener('change', function (ev) {
@@ -874,8 +874,8 @@ if (typeof module !== 'undefined' && module.exports) {
       $('m-png-btn').disabled = false;
       $('lk-backpng-btn').disabled = false;
       $('lk-samplepng-btn').disabled = false;
-      $('build-status').textContent = '✅ Book built: ' + book.pageCount + ' pages · ' +
-        draft.sections.length + ' activity sections · Book ' + draft.id + '. Preview below — check it, then Print / Save PDF.';
+      $('build-status').textContent = '✅ Your book is made: ' + book.pageCount + ' pages · ' +
+        draft.sections.length + ' kinds of activities. Look through it below — then press Print / Save PDF.';
       $('wrap-pages').value = book.pageCount;
       updateWrapDims();
       updatePrintCheck();
@@ -900,7 +900,7 @@ if (typeof module !== 'undefined' && module.exports) {
     doBuild(true).then(function () {
       if (builtBook && draft) {
         $('build-status').textContent = '✅ Your last book was restored and regenerated: ' +
-          builtBook.book.pageCount + ' pages · Book ' + draft.id + ' — ready to print.';
+          builtBook.book.pageCount + ' pages — ready to print below.';
       }
     }).catch(function () { /* the restored draft still works */ });
   }
@@ -1291,9 +1291,61 @@ if (typeof module !== 'undefined' && module.exports) {
       btn.className = 'panel-toggle';
       btn.setAttribute('aria-label', 'Collapse or expand this section');
       btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
-      btn.addEventListener('click', function () { panel.classList.toggle('collapsed'); });
+      btn.addEventListener('click', function () {
+        panel.classList.toggle('collapsed');
+        btn.setAttribute('aria-expanded', panel.classList.contains('collapsed') ? 'false' : 'true');
+      });
       head.appendChild(btn);
+      /* Advanced / pro panels start CLOSED, so a first-time
+         buyer sees only the simple path; one tap opens them
+         and every control inside works exactly as before. */
+      if (panel.hasAttribute('data-start-closed')) {
+        panel.classList.add('collapsed');
+        btn.setAttribute('aria-expanded', 'false');
+      } else {
+        btn.setAttribute('aria-expanded', 'true');
+      }
     });
+  }
+
+  /* Sub-panel disclosures (e.g. the Advanced options box
+     inside the design panel): a labelled button that shows
+     or hides the box's body. Starts closed. */
+  function initSubDisclosures() {
+    document.querySelectorAll('[data-collapsible-sub]').forEach(function (box) {
+      var btn = box.querySelector('.adv-toggle');
+      var body = box.querySelector('.adv-body');
+      if (!btn || !body) return;
+      btn.addEventListener('click', function () {
+        var open = body.hidden;
+        body.hidden = !open;
+        box.classList.toggle('open', open);
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+    });
+  }
+
+  /* One-click quick book: apply the proven defaults —
+     Level 1, every activity ticked at its standard count,
+     the Storybook picture style, the standard US Letter
+     size — then generate. Nothing is locked in: the buyer
+     can change anything afterwards and generate again. */
+  function quickBook() {
+    $('level-select').value = '1';
+    seedVariant = 1;
+    themeFilter = 'all';
+    $('pack-select').value = 'storybook';
+    if (!$('in-title').value.trim()) $('in-title').value = 'My First Reading Book';
+    renderActivities(null);
+    renderThemeChips();
+    updateLevelChrome();
+    populateWordSelect();
+    updatePackChrome();
+    $('trim-select').value = 'letter';
+    markDirty();
+    generateDraft();
+    switchTab('book');
+    doBuild();
   }
 
   /* ================= series builder ================= */
@@ -1396,8 +1448,8 @@ if (typeof module !== 'undefined' && module.exports) {
       $('wrap-style').textContent = '';
       renderPreview(html, firstOpts);
       $('series-print-btn').disabled = false;
-      $('series-status').textContent = '✅ Series built: ' + levels.length + ' books · ' + totalPages +
-        ' pages in one document (contents page first). Preview above — Print series / Save PDF makes the combined file. ' +
+      $('series-status').textContent = '✅ Your series is made: ' + levels.length + ' books · ' + totalPages +
+        ' pages in one file (contents page first). Look through it above — “Print series / Save PDF” saves the whole set. ' +
         'Each book was also saved on its own in My Books.';
       saveLastState();
     } finally {
@@ -1657,9 +1709,9 @@ if (typeof module !== 'undefined' && module.exports) {
   function updateWrapDims() {
     var pages = Math.max(1, parseInt($('wrap-pages').value, 10) || 80);
     var dims = BK.wrapCoverDims(pages, $('wrap-paper').value, $('wrap-trim').value);
-    $('wrap-dims').textContent = 'Spine width: ' + dims.spineIn.toFixed(3) + ' in · Full wrap size: ' +
+    $('wrap-dims').textContent = 'Folded edge (spine) width: ' + dims.spineIn.toFixed(3) + ' in · Whole cover size: ' +
       dims.totalWidthIn.toFixed(3) + ' in × ' + dims.totalHeightIn.toFixed(2) +
-      ' in (0.125 in bleed included on every side).';
+      ' in — including the 0.125 in extra edge (bleed) that KDP asks for on every side.';
     wrapCheck();
     return dims;
   }
@@ -1680,14 +1732,14 @@ if (typeof module !== 'undefined' && module.exports) {
       return false;
     }
     if (pages < 24) {
-      msg.textContent = 'KDP paperbacks need at least 24 interior pages — this count is ' + pages +
-        '. Generate a bigger book first (add more activity items on the Build tab, or raise the counts), ' +
-        'then come back here: the Wrap Builder will pick the new page count up automatically.';
+      msg.textContent = 'Amazon KDP paperbacks need at least 24 pages inside — this count is ' + pages +
+        '. Make a bigger book first (add more activities, or raise the “How many” numbers on the Build tab), ' +
+        'then come back here: this page count updates by itself.';
       msg.classList.remove('info');
       msg.hidden = false;
       return false;
     }
-    msg.textContent = 'Good — ' + pages + ' pages meets the KDP 24-page minimum. Preview the wrap when you are ready.';
+    msg.textContent = 'Good — ' + pages + ' pages is enough for a KDP paperback (24 or more). Press “Preview the cover” when you are ready.';
     msg.classList.add('info');
     msg.hidden = false;
     return true;
@@ -1741,7 +1793,7 @@ if (typeof module !== 'undefined' && module.exports) {
   function updatePrintCheck() {
     var body = $('pc-body');
     if (!body) return;
-    if (!draft) { body.innerHTML = '<p class="hint">Build a draft first — the checks appear here.</p>'; return; }
+    if (!draft) { body.innerHTML = '<p class="hint">Your checks appear here once the book’s pages are ready.</p>'; return; }
     var opts = readBookOpts();
     var pages = builtBook ? builtBook.book.pageCount : BK.estimatePageCount(draft, opts);
     var est = !builtBook;
@@ -1749,14 +1801,14 @@ if (typeof module !== 'undefined' && module.exports) {
     var dims = BK.wrapCoverDims(pages, paper, opts.trim === '8.5x10' ? '8.5x10' : '8.5x11');
     var rows = '';
     rows += '<div class="pc-row ' + (pages >= 24 ? 'pc-ok' : 'pc-warn') + '"><span class="pc-ic">' +
-      (pages >= 24 ? '✓' : '!') + '</span><span><b>' + pages + ' pages</b>' + (est ? ' (estimate — Generate gives the exact count)' : '') +
+      (pages >= 24 ? '✓' : '!') + '</span><span><b>' + pages + ' pages</b>' + (est ? ' (a close guess — press Generate for the exact count)' : '') +
       (pages >= 24
-        ? ' — meets the KDP paperback minimum of 24 pages.'
-        : ' — KDP paperbacks need at least 24 pages. Add ' + (24 - pages) + ' more: raise the activity counts on the Build tab.') +
+        ? ' — enough for an Amazon KDP paperback (24 pages or more).'
+        : ' — Amazon KDP paperbacks need at least 24 pages. Add ' + (24 - pages) + ' more pages: raise the “How many” numbers on the Build tab.') +
       '</span></div>';
     var T = BK.TRIMS[opts.trim] || BK.TRIMS.letter;
-    rows += '<div class="pc-row pc-info"><span class="pc-ic">i</span><span>Trim <b>' + T.label + '</b> · wrap paper <b>' +
-      (paper === 'cream' ? 'Cream' : 'White') + '</b> · spine at this count <b>' + dims.spineIn.toFixed(3) + ' in</b> · full wrap ' +
+    rows += '<div class="pc-row pc-info"><span class="pc-ic">i</span><span>Page size <b>' + T.label + '</b> · KDP cover paper: <b>' +
+      (paper === 'cream' ? 'Cream' : 'White') + '</b> · the book’s folded edge (spine) would be <b>' + dims.spineIn.toFixed(2) + ' in</b> wide · whole cover ' +
       dims.totalWidthIn.toFixed(2) + ' × ' + dims.totalHeightIn.toFixed(2) + ' in.</span></div>';
     /* sentence supply: unique sentences used vs the level's
        unique-sentence space (templates × target nouns is a
@@ -1774,9 +1826,9 @@ if (typeof module !== 'undefined' && module.exports) {
     });
     var pairSpace = cum.templates.length * Math.max(1, cum.nouns.length);
     var pct = Math.min(100, Math.round(100 * usedCount / Math.max(1, pairSpace)));
-    rows += '<div class="pc-row pc-info"><span class="pc-ic">i</span><span style="flex:1">Sentence supply: <b>' + usedCount +
-      ' unique sentences</b> in this book, drawn from a level bank of ' + cum.nouns.length + ' reading words and ' +
-      cum.templates.length + ' sentence patterns — no sentence repeats inside the book.' +
+    rows += '<div class="pc-row pc-info"><span class="pc-ic">i</span><span style="flex:1">This book uses <b>' + usedCount +
+      ' different sentences</b> — none of them repeats. They are built from ' + cum.nouns.length + ' reading words and ' +
+      cum.templates.length + ' sentence patterns at this level.' +
       '<span class="pc-meter"><i style="width:' + pct + '%"></i></span></span></div>';
     /* shortfalls: an activity that delivered fewer items
        than requested means the level's supply ran dry */
@@ -1787,8 +1839,8 @@ if (typeof module !== 'undefined' && module.exports) {
       var got = sec ? sec.items.length : 0;
       if (got < a.count) {
         rows += '<div class="pc-row pc-warn"><span class="pc-ic">!</span><span><b>' +
-          escapeHtml(C.phsActivityById(a.id).name) + ':</b> you asked for ' + a.count + ' items but this level only has ' +
-          got + ' unique ones left — the book uses ' + got + '. Lower the count or add your own sentences.</span></div>';
+          escapeHtml(C.phsActivityById(a.id).name) + ':</b> you asked for ' + a.count + ', but this level only has ' +
+          got + ' different ones — so the book uses ' + got + '. Lower the number, or add your own sentences on the Build tab.</span></div>';
       }
     });
     rows += '<div class="pc-row pc-ok"><span class="pc-ic">✓</span><span>Answer keys are drawn from the printed pages themselves — they always match.</span></div>';
@@ -1944,8 +1996,8 @@ if (typeof module !== 'undefined' && module.exports) {
     var list = loadProjects();
     var box = $('projects-list');
     box.innerHTML = list.length ? '' :
-      '<div class="empty-state"><b>No saved workbooks yet</b>' +
-      'Generate your first book on the Book &amp; cover tab — it will be auto-saved here, ' +
+      '<div class="empty-state"><b>No saved books yet</b>' +
+      'Generate your first book — it will be saved here all by itself, ' +
       'and you can also save named projects with the button above.</div>';
     list.forEach(function (p, idx) {
       var row = document.createElement('div');
@@ -2078,6 +2130,10 @@ if (typeof module !== 'undefined' && module.exports) {
       var pages = builtBook ? builtBook.book.pageCount : BK.estimatePageCount(draft, readBookOpts());
       $('wrap-pages').value = pages;
       updateWrapDims();
+      /* the cover maker starts collapsed (pro section) —
+         open it so the buyer lands right on it */
+      var wp = document.querySelector('.panel-wrap');
+      if (wp) wp.classList.remove('collapsed');
       $('wrap-msg').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     });
 
@@ -2095,6 +2151,7 @@ if (typeof module !== 'undefined' && module.exports) {
       switchTab('book');
       $('build-btn').click();
     });
+    $('quick-book-btn').addEventListener('click', quickBook);
     $('m-build-btn').addEventListener('click', function () { doBuild(); });
     $('m-print-btn').addEventListener('click', doPrint);
     $('m-png-btn').addEventListener('click', doPng);
@@ -2107,6 +2164,7 @@ if (typeof module !== 'undefined' && module.exports) {
     renderThemeChips();
     buildSeriesChips();
     initCollapsibles();
+    initSubDisclosures();
     updateLevelChrome();
     updatePackChrome();
     initCustomPictures();
