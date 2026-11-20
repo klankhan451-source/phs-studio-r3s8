@@ -37,10 +37,10 @@ var PHS_LEVELS = [
     sight: ['the', 'a', 'I', 'see', 'is'],
     nouns: [
       N('cat', '🐱', 'animals'), N('rat', '🐀', 'animals'), N('bat', '🦇', 'animals'),
-      N('ant', '🐜', 'animals'), N('ram', '🐏', 'animals'),
+      N('ram', '🐏', 'animals'),
       N('ham', '🍖', 'food'), N('jam', '🫙', 'food'), N('yam', '🍠', 'food'),
       N('map', '🗺️', 'objects'), N('bag', '👜', 'objects'), N('can', '🥫', 'objects'),
-      N('pan', '🍳', 'objects'), N('wax', '🕯️', 'objects'), N('tag', '🏷️', 'objects'),
+      N('pan', '🍳', 'objects'), N('tag', '🏷️', 'objects'),
       N('hat', '👒', 'clothes'), N('cap', '🧢', 'clothes'),
       N('van', '🚐', 'transport'), N('cab', '🚕', 'transport')
     ],
@@ -70,6 +70,7 @@ var PHS_LEVELS = [
       N('kid', '🧒', 'people'),
       N('lip', '👄', 'body'),
       N('pin', '📌', 'objects'), N('bin', '🗑️', 'objects'), N('pot', '🍯', 'objects'),
+      N('wax', '🕯️', 'objects'),
       N('log', '🪵', 'nature'), N('mop', '🧹', 'objects'), N('cot', '🛏️', 'objects'),
       N('box', '📦', 'objects'), N('dot', '⚫', 'objects'),
       N('cob', '🌽', 'food'), N('pod', '🫛', 'food')
@@ -121,18 +122,16 @@ var PHS_LEVELS = [
     patterns: 'Digraphs sh · ch · th · wh (ship, fish, chin, bath…)',
     sight: ['this', 'that', 'with', 'here', 'are'],
     nouns: [
-      N('fish', '🐟', 'animals'), N('chick', '🐤', 'animals'), N('whale', '🐋', 'animals'),
-      N('cheese', '🧀', 'food'), N('lunch', '🍱', 'food'), N('peach', '🍑', 'food'),
+      N('fish', '🐟', 'animals'), N('chick', '🐤', 'animals'),
+      N('lunch', '🍱', 'food'),
       N('ship', '🚢', 'transport'),
-      N('chair', '🪑', 'objects'), N('watch', '⌚', 'objects'), N('wheel', '🎡', 'objects'),
-      N('brush', '🖌️', 'objects'), N('bath', '🛁', 'objects'),
+      N('bath', '🛁', 'objects'),
       N('shell', '🐚', 'nature'),
-      N('tooth', '🦷', 'body'),
       N('shop', '🏪', 'home')
     ],
-    verbs: ['wish', 'wash', 'chop', 'chat', 'push', 'shut', 'brush', 'shop', 'fish', 'catch'],
-    adjectives: ['thin', 'thick', 'pink', 'black', 'white'],
-    places: ['shop', 'bath', 'ship', 'chair'],
+    verbs: ['wish', 'wash', 'chop', 'chat', 'push', 'shut', 'shop', 'fish'],
+    adjectives: ['thin', 'thick', 'pink'],
+    places: ['shop', 'bath', 'ship'],
     names: ['Josh', 'Beth', 'Chad'],
     extras: [],
     templates: [
@@ -149,9 +148,10 @@ var PHS_LEVELS = [
     patterns: 'Blends bl · cl · st · cr · fr · sm… (frog, clap, stop…)',
     sight: ['said', 'was', 'for', 'have', 'they'],
     nouns: [
-      N('frog', '🐸', 'animals'), N('crab', '🦀', 'animals'),
+      N('frog', '🐸', 'animals'), N('crab', '🦀', 'animals'), N('ant', '🐜', 'animals'),
       N('drum', '🥁', 'objects'), N('flag', '🚩', 'objects'), N('clock', '🕰️', 'objects'),
       N('gift', '🎁', 'objects'), N('sled', '🛷', 'objects'),
+      N('watch', '⌚', 'objects'), N('brush', '🖌️', 'objects'),
       N('dress', '👗', 'clothes'),
       N('truck', '🚚', 'transport'),
       N('grass', '🌿', 'nature'), N('nest', '🪹', 'nature'), N('sand', '🏖️', 'nature'),
@@ -159,8 +159,8 @@ var PHS_LEVELS = [
       N('hand', '✋', 'body'),
       N('tent', '⛺', 'home')
     ],
-    verbs: ['jump', 'swim', 'clap', 'skip', 'spin', 'step', 'stop', 'drop', 'help', 'stand', 'plan', 'grin'],
-    adjectives: ['small', 'fast', 'soft', 'glad', 'flat', 'brown', 'blue'],
+    verbs: ['jump', 'swim', 'clap', 'skip', 'spin', 'step', 'stop', 'drop', 'help', 'stand', 'plan', 'grin', 'catch', 'brush'],
+    adjectives: ['small', 'fast', 'soft', 'glad', 'flat', 'black'],
     places: ['grass', 'nest', 'sand', 'truck', 'tent'],
     names: ['Fred', 'Fran'],
     extras: [],
@@ -178,7 +178,7 @@ var PHS_LEVELS = [
     patterns: 'Silent-E words (cake, bike, home…)',
     sight: ['some', 'come', 'love', 'one', 'two'],
     nouns: [
-      N('snake', '🐍', 'animals'),
+      N('snake', '🐍', 'animals'), N('whale', '🐋', 'animals'),
       N('cake', '🎂', 'food'), N('grape', '🍇', 'food'),
       N('bike', '🚲', 'transport'), N('plane', '✈️', 'transport'),
       N('kite', '🪁', 'objects'), N('slide', '🛝', 'objects'), N('cube', '🧊', 'objects'),
@@ -188,7 +188,7 @@ var PHS_LEVELS = [
       N('home', '🏠', 'home'), N('gate', '🚪', 'home')
     ],
     verbs: ['bake', 'ride', 'hide', 'bite', 'wave', 'shake', 'make', 'take', 'smile', 'dive', 'hope'],
-    adjectives: ['cute', 'huge', 'safe'],
+    adjectives: ['cute', 'huge', 'safe', 'white'],
     places: ['home', 'lake', 'slide', 'gate', 'cave'],
     names: ['Jake', 'Kate', 'Pete', 'June'],
     extras: ['to'],
@@ -208,7 +208,10 @@ var PHS_LEVELS = [
     sight: ['what', 'where', 'there', 'who', 'out'],
     nouns: [
       N('goat', '🐐', 'animals'), N('bee', '🐝', 'animals'), N('snail', '🐌', 'animals'),
+      N('cheese', '🧀', 'food'), N('peach', '🍑', 'food'),
       N('soap', '🧼', 'objects'), N('key', '🔑', 'objects'), N('snowman', '⛄', 'objects'),
+      N('wheel', '🎡', 'objects'),
+      N('tooth', '🦷', 'body'),
       N('coat', '🧥', 'clothes'),
       N('boat', '⛵', 'transport'), N('train', '🚂', 'transport'),
       N('rain', '🌧️', 'nature'), N('tree', '🌳', 'nature'), N('seed', '🌱', 'nature'),
@@ -218,7 +221,7 @@ var PHS_LEVELS = [
       N('feet', '👣', 'body')
     ],
     verbs: ['play', 'sail', 'wait', 'eat', 'read', 'sleep', 'keep', 'say', 'rain'],
-    adjectives: ['green', 'sweet', 'deep', 'yellow'],
+    adjectives: ['green', 'sweet', 'deep', 'yellow', 'blue', 'brown'],
     places: ['boat', 'tree', 'beach', 'train', 'sea'],
     names: ['Jay', 'Kay', 'Lee', 'May'],
     extras: ['all'],
@@ -241,6 +244,7 @@ var PHS_LEVELS = [
       N('corn', '🌽', 'food'),
       N('car', '🚗', 'transport'),
       N('fork', '🍴', 'objects'), N('letter', '✉️', 'objects'), N('paper', '📄', 'objects'),
+      N('chair', '🪑', 'objects'),
       N('shirt', '👕', 'clothes'),
       N('girl', '👧', 'people'),
       N('star', '⭐', 'nature'), N('park', '🏞️', 'nature'), N('garden', '🌻', 'nature'),
@@ -249,7 +253,7 @@ var PHS_LEVELS = [
     ],
     verbs: ['bark', 'start', 'turn', 'draw', 'work'],
     adjectives: ['short', 'dark', 'hard'],
-    places: ['park', 'farm', 'car', 'garden'],
+    places: ['park', 'farm', 'car', 'garden', 'chair'],
     names: ['Mark', 'Carl'],
     extras: ['then', 'but'],
     templates: [
@@ -294,11 +298,43 @@ var PHS_SEQUENCES = [
     ]
   },
   {
+    id: 'fox-box', min: 2, title: 'The Fox in the Box',
+    steps: [
+      { pic: '🦊', s: 'I see a fox.' },
+      { pic: '📦', s: 'The fox is in the box.' },
+      { pic: '😴', s: 'The fox can nap.' }
+    ]
+  },
+  {
+    id: 'dog-run', min: 3, title: 'The Dog Can Run',
+    steps: [
+      { pic: '🐶', s: 'I see a dog.' },
+      { pic: '🏃', s: 'The dog can run.' },
+      { pic: '💧', s: 'The dog is wet.' }
+    ]
+  },
+  {
+    id: 'meg-hen', min: 3, title: 'Meg and the Hen',
+    steps: [
+      { pic: '🐔', s: 'I see a hen.' },
+      { pic: '🥚', s: 'The hen has an egg.' },
+      { pic: '🥅', s: 'The egg is in the net.' }
+    ]
+  },
+  {
     id: 'egg-hen', min: 4, title: 'Egg to Hen',
     steps: [
       { pic: '🥚', s: 'I see an egg.' },
       { pic: '🐤', s: 'I see a chick.' },
       { pic: '🐔', s: 'The hen is big.' }
+    ]
+  },
+  {
+    id: 'beth-shop', min: 4, title: 'Beth at the Shop',
+    steps: [
+      { pic: '🏪', s: 'I see a shop.' },
+      { pic: '👧', s: 'Beth is at the shop.' },
+      { pic: '🐟', s: 'Beth has a fish.' }
     ]
   },
   {
@@ -310,11 +346,27 @@ var PHS_SEQUENCES = [
     ]
   },
   {
+    id: 'fred-frog', min: 5, title: 'Fred and the Frog',
+    steps: [
+      { pic: '🐸', s: 'Fred has a frog.' },
+      { pic: '🏃', s: 'The frog can jump.' },
+      { pic: '🌿', s: 'The frog is in the grass.' }
+    ]
+  },
+  {
     id: 'make-cake', min: 6, title: 'Sam Bakes a Cake',
     steps: [
       { pic: '🥚', s: 'Sam has an egg.' },
       { pic: '🥣', s: 'Sam can mix the egg.' },
       { pic: '🎂', s: 'The cake is big.' }
+    ]
+  },
+  {
+    id: 'jake-bike', min: 6, title: 'Jake and the Bike',
+    steps: [
+      { pic: '🚲', s: 'Jake has a bike.' },
+      { pic: '🚴', s: 'Jake can ride the bike.' },
+      { pic: '🚪', s: 'The bike is at the gate.' }
     ]
   },
   {
@@ -340,8 +392,128 @@ var PHS_SEQUENCES = [
       { pic: '🌱', s: 'The sprout is up.' },
       { pic: '🌼', s: 'The flower is big.' }
     ]
+  },
+  {
+    id: 'the-horse', min: 8, title: 'The Horse in the Park',
+    steps: [
+      { pic: '🐴', s: 'I see a horse.' },
+      { pic: '🏞️', s: 'The horse is in the park.' },
+      { pic: '🏃', s: 'The horse can run.' }
+    ]
   }
 ];
+
+/* ---------------- semantics (content quality round) ----------------
+   The word banks say WHAT can be said; these tables say
+   what MAKES SENSE. The engine's semantic check uses them
+   to reject generated sentences a teacher would flag:
+   feelings on things ("The wax is sad"), actions only
+   living creatures can do ("First, the pan can hug"),
+   intransitive verbs with objects ("Pam can nap the bag"),
+   and articles/plurals on words that cannot take them
+   ("Sam has a wax", "The feet is with June").
+
+   Noun semantic class comes from the bank category:
+   animals -> animal, people -> person, food -> food, and
+   objects / clothes / transport / nature / body / home
+   keep their category name as their class (all inanimate).
+   Names are people. */
+
+/* adjectives that describe a FEELING — their subject must
+   be a person or an animal, never a thing */
+var PHS_EMOTION_ADJS = ['sad', 'mad', 'glad'];
+
+/* uncountable nouns: never "a wax", never pluralised */
+var PHS_MASS_NOUNS = ['wax', 'jam', 'milk', 'sand', 'grass', 'snow', 'rain', 'gum'];
+
+/* nouns that are already plural in form: never "a feet",
+   never "... is" right after them, plural() returns them
+   unchanged ("two feet") */
+var PHS_PLURAL_NOUNS = ['feet'];
+
+/* Verb frames: s = subject classes allowed, o = object
+   classes allowed (null = the verb never takes an object),
+   i = may be used with no object, m = a movement verb that
+   may travel "to the {place}". 'any' matches every class. */
+function VF(s, o, i, m) { return { s: s, o: o || null, i: !!i, m: !!m }; }
+var PHS_VERB_FRAMES = {
+  nap: VF(['person', 'animal'], null, 1), pat: VF(['person', 'animal'], ['any']),
+  tap: VF(['person', 'animal'], ['any']), wag: VF(['animal'], null, 1),
+  dab: VF(['person', 'animal'], ['any']),
+  sit: VF(['person', 'animal'], null, 1), dig: VF(['person', 'animal'], ['objects', 'nature', 'home']),
+  hop: VF(['person', 'animal'], null, 1, 1), jog: VF(['person', 'animal'], null, 1, 1),
+  nod: VF(['person', 'animal'], null, 1), sip: VF(['person', 'animal'], ['food']),
+  mix: VF(['person', 'animal'], ['food', 'objects']), fix: VF(['person', 'animal'], ['objects', 'clothes', 'transport', 'home']),
+  win: VF(['person', 'animal'], null, 1), dip: VF(['person', 'animal'], ['food', 'objects']),
+  zip: VF(['person', 'animal'], ['clothes', 'objects']),
+  run: VF(['person', 'animal'], null, 1, 1), hug: VF(['person', 'animal'], ['person', 'animal']),
+  cut: VF(['person', 'animal'], ['food', 'objects', 'nature', 'clothes']),
+  hum: VF(['person', 'animal'], null, 1), get: VF(['person', 'animal'], ['any']),
+  set: VF(['person', 'animal'], ['any']), tug: VF(['person', 'animal'], ['any']),
+  beg: VF(['person', 'animal'], null, 1),
+  wish: VF(['person', 'animal'], null, 1), wash: VF(['person', 'animal'], ['any']),
+  chop: VF(['person', 'animal'], ['food', 'objects', 'nature']), chat: VF(['person'], null, 1),
+  push: VF(['person', 'animal'], ['any']), shut: VF(['person', 'animal'], ['objects', 'home', 'transport']),
+  shop: VF(['person'], null, 1), fish: VF(['person'], null, 1),
+  jump: VF(['person', 'animal'], null, 1, 1), swim: VF(['person', 'animal'], null, 1, 1),
+  clap: VF(['person', 'animal'], null, 1), skip: VF(['person', 'animal'], null, 1, 1),
+  spin: VF(['any'], null, 1), step: VF(['person', 'animal'], null, 1),
+  stop: VF(['any'], ['any'], 1), drop: VF(['person', 'animal'], ['any']),
+  help: VF(['person', 'animal'], ['person', 'animal'], 1), stand: VF(['any'], null, 1),
+  plan: VF(['person'], null, 1), grin: VF(['person', 'animal'], null, 1),
+  catch: VF(['person', 'animal'], ['animal', 'objects', 'transport']),
+  brush: VF(['person', 'animal'], ['any']),
+  bake: VF(['person'], ['food'], 1), ride: VF(['person', 'animal'], ['transport', 'animal'], 1, 1),
+  hide: VF(['person', 'animal'], ['any'], 1), bite: VF(['person', 'animal'], ['any']),
+  wave: VF(['person', 'animal'], ['objects', 'clothes'], 1), shake: VF(['person', 'animal'], ['any'], 1),
+  make: VF(['person', 'animal'], ['any']), take: VF(['person', 'animal'], ['any']),
+  smile: VF(['person', 'animal'], null, 1), dive: VF(['person', 'animal'], null, 1, 1),
+  hope: VF(['person'], null, 1),
+  play: VF(['person', 'animal'], ['objects'], 1), sail: VF(['person', 'animal', 'transport'], ['transport'], 1),
+  wait: VF(['person', 'animal'], null, 1), eat: VF(['person', 'animal'], ['food']),
+  read: VF(['person'], ['objects']), sleep: VF(['person', 'animal'], null, 1),
+  keep: VF(['person', 'animal'], ['any']), say: VF(['person'], null, 1),
+  rain: VF(['nature'], null, 1),
+  bark: VF(['animal'], null, 1), start: VF(['person', 'animal', 'transport'], ['transport', 'objects'], 1),
+  turn: VF(['any'], ['any'], 1), draw: VF(['person'], ['objects'], 1),
+  work: VF(['person'], null, 1)
+};
+
+/* The semantic class of a bank noun object. */
+function phsNounClass(noun) {
+  if (!noun) return 'objects';
+  if (noun.c === 'animals') return 'animal';
+  if (noun.c === 'people') return 'person';
+  return noun.c; // food / objects / clothes / transport / nature / body / home
+}
+function phsIsAnimateClass(cls) { return cls === 'person' || cls === 'animal'; }
+
+/* ---------------- per-level back-cover blurbs ----------------
+   Every level gets its OWN back-cover headline + paragraph
+   that matches the skill it teaches — the old single text
+   ("A gentle first step into reading… a beginner can sound
+   out every word") was wrong on advanced books. */
+var PHS_LEVEL_BLURBS = [
+  { head: 'A gentle first step into reading',
+    body: 'this book was written to be read <b>by</b> your child. Every sentence uses only short-a words and the Focus Words, so a beginner can sound out every word — no guessing, no memorised word lists, just real reading from the very first page.' },
+  { head: 'Growing confidence, word by word',
+    body: 'this book adds short-i and short-o words to everything from Level 1. Every sentence uses only the sounds taught up to Level 2, so your child can sound out every word — and feel how much further they can read already.' },
+  { head: 'All five short vowels, mastered',
+    body: 'with short-e and short-u complete, your child can now sound out any short-vowel word. Every sentence uses only the sounds taught up to Level 3 — longer practice, the same promise: no guessing, just real reading.' },
+  { head: 'Two letters, one sound',
+    body: 'this book unlocks the digraphs — sh, ch, th and wh. Every sentence uses only the sounds taught up to Level 4, so your child can sound out every word, digraphs included, with no guessing.' },
+  { head: 'Blends made easy',
+    body: 'this book teaches consonant blends — the cl, st, fr and sm sounds that open up hundreds of new words. Every sentence uses only the sounds taught up to Level 5, so blends are practised, never guessed.' },
+  { head: 'The magic e changes everything',
+    body: 'this book introduces silent-e words — cap becomes cape, kit becomes kite. Every sentence uses only the sounds taught up to Level 6, so your child can sound out every word, magic e included.' },
+  { head: 'Vowel teams, longer reads',
+    body: 'this book teaches vowel teams — ai, ee, oa, ay and more — the patterns inside most real storybooks. Every sentence uses only the sounds taught up to Level 7, so longer words stay decodable, never guessed.' },
+  { head: 'Reading like a champion',
+    body: 'the final level: r-controlled vowels (car, bird, corn) and longer two-clause sentences. Every sentence uses only the sounds taught through Level 8 — your child finishes the series reading rich, real sentences all by themselves.' }
+];
+function phsLevelBlurb(levelId) {
+  return PHS_LEVEL_BLURBS[levelId - 1] || PHS_LEVEL_BLURBS[0];
+}
 
 /* ---------------- activity definitions ---------------- */
 
@@ -480,6 +652,9 @@ if (typeof module !== 'undefined' && module.exports) {
     PHS_LEVELS: PHS_LEVELS, PHS_SEQUENCES: PHS_SEQUENCES, PHS_ACTIVITIES: PHS_ACTIVITIES,
     PHS_PICTURE_PACKS: PHS_PICTURE_PACKS, phsPicturePackById: phsPicturePackById, PHS_PIC_LIB: PHS_PIC_LIB,
     PHS_STORYBOOK: PHS_STORYBOOK,
+    PHS_EMOTION_ADJS: PHS_EMOTION_ADJS, PHS_MASS_NOUNS: PHS_MASS_NOUNS, PHS_PLURAL_NOUNS: PHS_PLURAL_NOUNS,
+    PHS_VERB_FRAMES: PHS_VERB_FRAMES, phsNounClass: phsNounClass, phsIsAnimateClass: phsIsAnimateClass,
+    PHS_LEVEL_BLURBS: PHS_LEVEL_BLURBS, phsLevelBlurb: phsLevelBlurb,
     phsLevelById: phsLevelById, phsActivityById: phsActivityById, phsCumulative: phsCumulative
   };
 }
