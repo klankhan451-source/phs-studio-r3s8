@@ -851,18 +851,18 @@ if (typeof module !== 'undefined' && module.exports) {
 
   /* ---------- build ---------- */
 
-  async function doBuild() {
+  async function doBuild(silent) {
     if (!draft) generateDraft();
-    pmShow('Building your book…', 'Writing sentences…', 15, false);
+    if (!silent) pmShow('Building your book…', 'Writing sentences…', 15, false);
     try {
       await tick();
       prepareDraftForBuild();
-      pmStep('Placing pictures…', 45);
+      if (!silent) pmStep('Placing pictures…', 45);
       await tick();
       var opts = readBookOpts();
       $('wrap-style').textContent = '';
       var book = BK.buildBook(draft, opts);
-      pmStep('Building answer keys…', 75);
+      if (!silent) pmStep('Building answer keys…', 75);
       await tick();
       $('book-style').textContent = BK.bookCss(opts.design, opts);
       builtBook = { book: book, opts: opts, design: opts.design };
@@ -885,8 +885,24 @@ if (typeof module !== 'undefined' && module.exports) {
       autoSaveProject('Auto — ' + draft.title + ' — ' + new Date().toLocaleDateString());
       saveLastState();
     } finally {
-      pmHide();
+      if (!silent) pmHide();
     }
+  }
+
+  /* After a restore (reload or project load) the saved
+     state holds the draft but not the built book, which
+     used to leave Print disabled until the buyer pressed
+     Build again. Rebuild quietly instead — the build is
+     deterministic (seeded from the draft), so the buyer
+     gets the same book back and can print at once. */
+  function rebuildAfterRestore() {
+    if (!draft) return;
+    doBuild(true).then(function () {
+      if (builtBook && draft) {
+        $('build-status').textContent = '✅ Your last book was restored and rebuilt: ' +
+          builtBook.book.pageCount + ' pages · Book ' + draft.id + ' — ready to print.';
+      }
+    }).catch(function () { /* the restored draft still works */ });
   }
 
   /* ---------- paginated preview ---------- */
@@ -934,6 +950,9 @@ if (typeof module !== 'undefined' && module.exports) {
     scaleEl.style.transform = '';
     scaleEl.style.width = '';
     scaleEl.style.height = '';
+    scaleEl.style.marginLeft = '';
+    scaleEl.style.marginRight = '';
+    scaleEl.style.marginBottom = '';
     var mode = box.dataset.mode || 'single';
     var per = mode === 'spread' ? 2 : 1;
     var visible = preview.pages.filter(function (p, i) {
@@ -952,38 +971,97 @@ if (typeof module !== 'undefined' && module.exports) {
     scaleEl.style.transform = 'scale(' + s + ')';
     scaleEl.style.marginBottom = (naturalH * (s - 1)) + 'px';
     scaleEl.style.marginRight = (naturalW * (s - 1)) + 'px';
+    /* Centre the pages when the scaled footprint is narrower
+       than the viewport; when it is wider, start flush at the
+       left edge so the scrollable area covers every pixel.
+       (Auto margins used to shove wide pages partly outside
+       the reachable scroll area — the page looked clipped
+       with no way to scroll to the cut-off part.) */
+    var footprint = naturalW * s;
+    scaleEl.style.marginLeft = footprint < avail
+      ? Math.round((avail - footprint) / 2) + 'px' : '0px';
   }
 
-  /* ---------- same-tab printing ---------- */
+  /* ---------- printing (hidden iframe) ---------- */
 
-  /* Print in THIS tab: the print root holds the document,
-     the print stylesheet hides the studio, and the state
-     was auto-saved first — so returning from print can
-     never strand the buyer on dead tabs (the old popup
-     flow lost the book; this one cannot). */
-  function printDocument(html, cssText, otherStyleId) {
+  /* Print through a throwaway hidden iframe. The MAIN
+     document is never put into a print state: its styles,
+     classes and content are not touched, so the studio
+     stays fully clickable before, during and after the
+     print dialog. (The previous same-tab flow swapped the
+     main document's stylesheets, filled a print root in
+     the page and relied on the window's 'afterprint' to
+     put everything back; in a real browser that stranded
+     buyers on dead tabs whenever the restore never ran.)
+     The frame removes itself when its own 'afterprint'
+     fires; a safety timer and the start of the next print
+     also remove it, so repeated prints always work. */
+  var printFrame = null;
+  var printFrameTimer = null;
+
+  function removePrintFrame() {
+    if (printFrameTimer) { clearTimeout(printFrameTimer); printFrameTimer = null; }
+    if (printFrame && printFrame.parentNode) printFrame.parentNode.removeChild(printFrame);
+    printFrame = null;
+  }
+
+  function printDocument(html, cssText) {
     saveLastState();
-    var bookStyle = $('book-style'), wrapStyle = $('wrap-style');
-    var savedBookCss = bookStyle.textContent, savedWrapCss = wrapStyle.textContent;
-    if (otherStyleId === 'wrap') { bookStyle.textContent = ''; wrapStyle.textContent = cssText; }
-    else { wrapStyle.textContent = ''; bookStyle.textContent = cssText; }
-    $('print-root').innerHTML = html;
-    document.body.classList.add('is-printing');
-    function cleanup() {
-      document.body.classList.remove('is-printing');
-      $('print-root').innerHTML = '';
-      bookStyle.textContent = savedBookCss;
-      wrapStyle.textContent = savedWrapCss;
-      window.removeEventListener('afterprint', cleanup);
+    removePrintFrame(); /* a previous print can never linger */
+    var frame = document.createElement('iframe');
+    frame.setAttribute('aria-hidden', 'true');
+    frame.setAttribute('title', 'Print');
+    /* NOT display:none — some browsers refuse to print a
+       display:none frame. 1px, transparent, click-through,
+       pinned to a corner: invisible and inert. */
+    frame.style.cssText = 'position:fixed;right:0;bottom:0;width:1px;height:1px;' +
+      'border:0;margin:0;padding:0;opacity:0;pointer-events:none;';
+    document.body.appendChild(frame);
+    printFrame = frame;
+    var frameDoc = frame.contentDocument ||
+      (frame.contentWindow && frame.contentWindow.document);
+    if (!frameDoc) { removePrintFrame(); return; }
+    frameDoc.open();
+    frameDoc.write('<!DOCTYPE html><html><head><meta charset="utf-8">' +
+      '<style>' + cssText + '\nhtml, body { margin: 0; padding: 0; background: #fff; }</style>' +
+      '</head><body>' + html + '</body></html>');
+    frameDoc.close();
+    try {
+      frame.contentWindow.addEventListener('afterprint', function () {
+        setTimeout(removePrintFrame, 100);
+      });
+    } catch (e) { /* the safety timer still cleans up */ }
+    printFrameTimer = setTimeout(removePrintFrame, 60000);
+    waitForFrameImages(frame, 0);
+  }
+
+  /* Print only once the frame's pictures have loaded, so
+     the printout never shows blank picture boxes; give up
+     waiting after ~4s and print anyway. */
+  function waitForFrameImages(frame, waited) {
+    if (frame !== printFrame) return; /* a newer print took over */
+    var doc = frame.contentDocument, pending = 0;
+    if (doc && doc.images) {
+      for (var i = 0; i < doc.images.length; i++) {
+        if (!doc.images[i].complete) pending++;
+      }
     }
-    window.addEventListener('afterprint', cleanup);
-    setTimeout(cleanup, 60000); /* safety if afterprint never fires */
-    setTimeout(function () { window.print(); }, 60);
+    if (pending && waited < 4000) {
+      setTimeout(function () { waitForFrameImages(frame, waited + 120); }, 120);
+      return;
+    }
+    setTimeout(function () {
+      if (frame !== printFrame) return;
+      var cw = frame.contentWindow;
+      if (!cw) return;
+      try { cw.focus(); cw.print(); }
+      catch (e) { /* dialog refused — the studio is unaffected */ }
+    }, 150);
   }
 
   function doPrint() {
     if (!currentPrint) return;
-    printDocument(currentPrint.html, currentPrint.css, 'book');
+    printDocument(currentPrint.html, currentPrint.css);
   }
 
   /* Front cover PNG, drawn on canvas (same approach as our
@@ -1651,7 +1729,7 @@ if (typeof module !== 'undefined' && module.exports) {
     if (!wrapBuilt) return;
     printDocument(
       BK.wrapCoverHtml(wrapBuilt.meta, wrapBuilt.design, wrapBuilt.dims, wrapBuilt.pack),
-      BK.wrapCoverCss(wrapBuilt.design, wrapBuilt.dims), 'wrap');
+      BK.wrapCoverCss(wrapBuilt.design, wrapBuilt.dims));
   }
 
   /* ================= print check ================= */
@@ -1877,7 +1955,7 @@ if (typeof module !== 'undefined' && module.exports) {
         '<span class="p-meta">' + escapeHtml(p.savedAt) + '</span>';
       var load = document.createElement('button');
       load.className = 'btn btn-ghost btn-small'; load.textContent = 'Load';
-      load.addEventListener('click', function () { applyState(p.state); switchTab('build'); });
+      load.addEventListener('click', function () { applyState(p.state); switchTab('build'); rebuildAfterRestore(); });
       var del = document.createElement('button');
       del.className = 'btn btn-ghost btn-small'; del.textContent = 'Delete';
       del.addEventListener('click', function () {
@@ -1937,11 +2015,16 @@ if (typeof module !== 'undefined' && module.exports) {
       generateDraft('All items regenerated (set #' + seedVariant + ').');
     });
     dSel.addEventListener('change', function () { updateDesignChrome(); updatePrintCheck(); scheduleAutosave(); });
-    $('build-btn').addEventListener('click', doBuild);
+    /* wrapped: a bare doBuild listener would receive the
+       click EVENT as its first argument and mistake it for
+       the silent flag */
+    $('build-btn').addEventListener('click', function () { doBuild(); });
     $('print-btn').addEventListener('click', doPrint);
     $('png-btn').addEventListener('click', doPng);
     ['wrap-pages', 'wrap-paper', 'wrap-trim'].forEach(function (id) {
       $(id).addEventListener('change', updateWrapDims);
+      /* recalc as the buyer types, not only on Enter/Tab */
+      $(id).addEventListener('input', updateWrapDims);
     });
     $('wrap-paper').addEventListener('change', updatePrintCheck);
     $('wrap-preview-btn').addEventListener('click', doWrapPreview);
@@ -2001,14 +2084,14 @@ if (typeof module !== 'undefined' && module.exports) {
     /* series builder + listing kit + phone action bar */
     $('series-build-btn').addEventListener('click', buildSeries);
     $('series-print-btn').addEventListener('click', function () {
-      if (seriesDoc) printDocument(seriesDoc.html, seriesDoc.css, 'book');
+      if (seriesDoc) printDocument(seriesDoc.html, seriesDoc.css);
     });
     document.querySelectorAll('.lk-copy').forEach(function (btn) {
       btn.addEventListener('click', function () { copyListingText(btn.dataset.copy, btn); });
     });
     $('lk-backpng-btn').addEventListener('click', doBackPng);
     $('lk-samplepng-btn').addEventListener('click', doSamplePng);
-    $('m-build-btn').addEventListener('click', doBuild);
+    $('m-build-btn').addEventListener('click', function () { doBuild(); });
     $('m-print-btn').addEventListener('click', doPrint);
     $('m-png-btn').addEventListener('click', doPng);
     $('pm-cancel').addEventListener('click', function () { pmCancelled = true; });
@@ -2032,7 +2115,7 @@ if (typeof module !== 'undefined' && module.exports) {
     if (last && last.draft) {
       applyState(last);
       $('restore-bar').hidden = false;
-      $('build-status').textContent = 'Your last book was restored — press Build my book on the Book & cover tab to rebuild it, or just keep editing.';
+      rebuildAfterRestore();
     } else {
       generateDraft();
     }
