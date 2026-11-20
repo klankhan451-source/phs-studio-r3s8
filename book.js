@@ -13,10 +13,11 @@
  *  Pagination is deterministic: pages are assembled in JS
  *  with conservative per-activity capacities, and counted
  *  as they are built (pageCount === number of page divs).
- *  Pages are packed greedily (paginateItems) so that no
- *  picture emoji ever repeats on one printed page; item
- *  numbers follow the section order, keeping the answer
- *  keys aligned with the printed rows.
+ *  Pages are packed sequentially (paginateItems) so that no
+ *  picture emoji ever repeats on one printed page and the
+ *  printed item numbers run in reading order; the answer
+ *  keys are then derived from the printed items in printed
+ *  order, so a key always matches the strip it belongs to.
  *
  *  Also home to the KDP Wrap Cover Builder maths + renderer:
  *  spine = pages × paper factor (white 0.002252 in/page,
@@ -60,9 +61,15 @@ var PAGE_MARGIN_MM = 10;
 
 /* items per page by activity — conservative so a page never
    overflows its frame in print (checked for the shortest
-   trim, 8.5×10, as well as Letter/A4). */
+   trim, 8.5×10, as well as Letter/A4). The Compact density
+   packs one more strip-style item per page (its CSS also
+   tightens the strip spacing, so the page still fits). */
 var CAPACITY = { circle: 4, builder: 4, draw: 2, trace: 3, comp: 1, seq: 1, custom: 4 };
-function capacityFor(type) { return CAPACITY[type] || 4; }
+var CAPACITY_COMPACT = { circle: 5, builder: 5, draw: 2, trace: 4, comp: 1, seq: 1, custom: 5 };
+function capacityFor(type, density) {
+  var table = density === 'compact' ? CAPACITY_COMPACT : CAPACITY;
+  return table[type] || 4;
+}
 
 /* ---------- CSS ---------- */
 
@@ -90,31 +97,37 @@ function itemPics(it) {
   }
 }
 
-/* Greedy page packing: items keep their book order as far
-   as possible, but an item is only placed on a page when
-   NONE of its pictures already appears on that page (and
-   the page has room); otherwise it starts or joins a later
-   page. Returns pages of { it, n } where n is the item's
-   number in its section — numbering follows the section
-   order, so the answer keys (derived from the same order)
-   always match the printed numbers. */
+/* Sequential page packing: items fill pages strictly in
+   section order. An item joins the current page only when
+   the page has room AND none of its pictures already
+   appears on that page; otherwise the page is closed and
+   the item starts the next one. Later items NEVER backfill
+   an earlier page, so the printed numbers read 1, 2, 3 …
+   in reading order across the pages — and the answer keys,
+   which are derived from the printed items in printed
+   order, line up with the strips exactly as a reader meets
+   them. (The earlier greedy backfill printed e.g. item 9
+   on an earlier page than item 8; the keys, listed in
+   section order, then appeared "wrong" against the pages.)
+   Returns pages of { it, n } where n is the item's number
+   in its section. */
 function paginateItems(items, capFor, kindOf) {
   var pages = [];
+  var cur = null;
   (items || []).forEach(function (it, idx) {
     var kind = kindOf(it);
     var cap = capFor(it, kind);
     var pics = itemPics(it);
-    var placed = null;
-    for (var p = 0; p < pages.length; p++) {
-      var pg = pages[p];
-      if (pg.kind !== kind || pg.entries.length >= cap) continue;
-      var clash = false;
-      for (var i = 0; i < pics.length; i++) if (pg.pics[pics[i]]) { clash = true; break; }
-      if (!clash) { placed = pg; break; }
+    var clash = false;
+    if (cur && cur.kind === kind && cur.entries.length < cap) {
+      for (var i = 0; i < pics.length; i++) if (cur.pics[pics[i]]) { clash = true; break; }
     }
-    if (!placed) { placed = { kind: kind, pics: {}, entries: [] }; pages.push(placed); }
-    pics.forEach(function (e) { placed.pics[e] = true; });
-    placed.entries.push({ it: it, n: idx + 1 });
+    if (!cur || cur.kind !== kind || cur.entries.length >= cap || clash) {
+      cur = { kind: kind, pics: {}, entries: [] };
+      pages.push(cur);
+    }
+    pics.forEach(function (e) { cur.pics[e] = true; });
+    cur.entries.push({ it: it, n: idx + 1 });
   });
   return pages.map(function (pg) { return pg.entries; });
 }
@@ -164,10 +177,17 @@ function bookCss(design, opts) {
      badge · big title · subtitle · belongs-to ribbon · ONE
      hero illustration stage · compact what's-inside · tiles
      · brand footband — same skeleton for every design */
-  '.cov-level-badge { position: absolute; top: 11mm; right: 5mm; background: ' + d.headerBg + '; color: ' + d.headerText + '; border-radius: ' + d.radius + 'px; padding: 2.2mm 3.5mm; text-align: center; line-height: 1.3; }' +
+  /* cover top row: a flex row (spacer · series pill ·
+     level badge) — the badge sits in normal flow at the
+     right, so it can NEVER overlap the centred series
+     pill, whatever the design or trim (the old absolute
+     badge overlapped the pill on the Dino cover). */
+  '.cov-toprow { display: flex; align-items: flex-start; justify-content: space-between; gap: 3mm; margin-top: 1mm; }' +
+  '.cov-toprow .cov-flex { flex: 1 1 0; }' +
+  '.cov-toprow .cov-badge-cell { flex: 1 1 0; text-align: right; }' +
+  '.cov-level-badge { display: inline-block; background: ' + d.headerBg + '; color: ' + d.headerText + '; border-radius: ' + d.radius + 'px; padding: 2.2mm 3.5mm; text-align: center; line-height: 1.3; }' +
   '.cov-level-badge .clb-name { display: block; font-family: ' + d.headerFont + '; font-size: 10pt; font-weight: bold; }' +
   '.cov-level-badge .clb-ages { display: block; font-size: 8pt; letter-spacing: 2px; }' +
-  '.cov-series { margin-top: 1mm; }' +
   '.bk-cover h1.cov-title { font-family: ' + d.headerFont + '; font-size: 34pt; margin: 4mm 0 1.5mm; color: ' + d.headerBg + '; line-height: 1.12; }' +
   '.cov-patterns { font-size: 11pt; color: ' + d.cellText + '; }' +
   '.cov-subtitle { font-size: 13pt; letter-spacing: 1.5px; margin-top: 2mm; color: ' + d.cellText + '; }' +
@@ -309,7 +329,53 @@ function bookCss(design, opts) {
   '.bk-barcode .bars { display: flex; justify-content: center; align-items: stretch; height: 12mm; }' +
   '.bk-barcode .bar { background: #1a1a1a; margin-right: 0.55mm; }' +
   '.bk-barcode .bc-label { font-size: 8.5pt; letter-spacing: 2.5px; margin-top: 1.6mm; }' +
+  /* series contents page (Series Builder combined books) */
+  '.bk-contents h2 { font-family: ' + d.headerFont + '; color: ' + d.headerBg + '; font-size: 21pt; margin: 0 0 3mm; text-align: center; }' +
+  '.bk-contents .contents-sub { text-align: center; font-size: 12pt; margin-bottom: 6mm; }' +
+  '.contents-row { display: flex; justify-content: space-between; align-items: baseline; gap: 5mm; border-bottom: 1.6px dotted ' + d.cellBorder + '; padding: 3mm 1mm; font-size: 12.5pt; }' +
+  '.contents-row .c-book { font-weight: bold; color: ' + d.accent + '; }' +
+  '.contents-row .c-meta { font-size: 10.5pt; opacity: .75; }' +
+  /* answer-mark style: fill-the-bubble (opt-in variant) */
+  '.st-bubble { width: 6mm; height: 6mm; border: 1.8px solid ' + d.cellBorder + '; border-radius: 50%; margin: 1.6mm auto 0.6mm; background: #ffffff; }' +
+  '.st-choice .st-bubble-sm { display: inline-block; width: 4.4mm; height: 4.4mm; border: 1.6px solid ' + d.cellBorder + '; border-radius: 50%; vertical-align: -0.9mm; margin-right: 2mm; background: #ffffff; }' +
+  densityCss(opts, d) + rowStyleCss(opts, d) +
   '';
+}
+
+/* Strip density variant (opts.density === 'compact'):
+   tighter strips so the extra item per page still fits. */
+function densityCss(opts, d) {
+  if (!opts || opts.density !== 'compact') return '';
+  return '' +
+  '.strip { padding: 2.6mm 3.2mm; margin-bottom: 3.2mm; }' +
+  '.strip .pic { font-size: 29pt; }' +
+  '.pic img.pic-img { height: 17.5mm; }' +
+  '.st-pics { margin-top: 2.2mm; }' +
+  '.tr-item { margin-bottom: 4mm; }' +
+  '.draw-frame { height: 64mm; }' +
+  '.st-sentence { font-size: 13.5pt; }' +
+  '';
+}
+
+/* Row-style variants (opts.rowStyle): 'lines' drops the
+   card chrome for ruled rows; 'cut' makes every strip a
+   dashed cut-apart card with a scissors mark. */
+function rowStyleCss(opts, d) {
+  if (!opts || !opts.rowStyle || opts.rowStyle === 'cards') return '';
+  if (opts.rowStyle === 'lines') {
+    return '' +
+    '.strip { border: none; border-bottom: 1.8px solid ' + d.cellBorder + '; border-radius: 0; background: transparent; padding-left: 0.5mm; padding-right: 0.5mm; }' +
+    '.pic-box { border-color: transparent; background: transparent; }' +
+    '.st-choice { background: transparent; }' +
+    '';
+  }
+  if (opts.rowStyle === 'cut') {
+    return '' +
+    '.strip { border-style: dashed; position: relative; }' +
+    '.strip::before { content: "✂"; position: absolute; top: 1mm; right: 2.5mm; font-size: 10pt; color: ' + d.accent + '; }' +
+    '';
+  }
+  return '';
 }
 
 /* ---------- item renderers ---------- */
@@ -325,18 +391,20 @@ function headHtml(section, data, opts) {
     '<div class="ph-how">' + esc(section.activity.how || '') + '</div></div>';
 }
 
-function circleItemHtml(it, n) {
+function circleItemHtml(it, n, opts) {
+  var bubble = opts && opts.markStyle === 'bubble' ? '<div class="st-bubble"></div>' : '';
   var pics = it.options.map(function (o) {
-    return '<div class="pic-box"><div class="pic">' + picHtml(o.e) + '</div></div>';
+    return '<div class="pic-box"><div class="pic">' + picHtml(o.e) + '</div>' + bubble + '</div>';
   }).join('');
   return '<div class="strip"><div class="st-top"><span class="st-n">' + n + '.</span>' +
     '<span class="st-sentence">' + esc(it.sentence) + '</span></div>' +
     '<div class="st-pics">' + pics + '</div></div>';
 }
 
-function builderItemHtml(it, n) {
+function builderItemHtml(it, n, opts) {
+  var bubble = opts && opts.markStyle === 'bubble' ? '<span class="st-bubble-sm"></span>' : '';
   var choices = it.choices.map(function (c) {
-    return '<span class="st-choice">' + esc(c) + '</span>';
+    return '<span class="st-choice">' + bubble + esc(c) + '</span>';
   }).join('');
   return '<div class="strip"><div class="builder-flex">' +
     '<div class="builder-pic"><div class="pic-box"><div class="pic">' + picHtml(it.pic.e) + '</div></div></div>' +
@@ -384,10 +452,10 @@ function seqItemHtml(it) {
     '<div class="seq-pics">' + pics + '</div>' + sents;
 }
 
-function itemHtml(it, n) {
+function itemHtml(it, n, opts) {
   switch (it.type) {
-    case 'circle': return circleItemHtml(it, n);
-    case 'builder': return builderItemHtml(it, n);
+    case 'circle': return circleItemHtml(it, n, opts);
+    case 'builder': return builderItemHtml(it, n, opts);
     case 'draw': return drawItemHtml(it, n);
     case 'trace': return traceItemHtml(it, n);
     case 'comp': return compItemHtml(it);
@@ -398,22 +466,64 @@ function itemHtml(it, n) {
 
 /* ---------- section pages ---------- */
 
-function sectionPages(section, data, opts) {
+/* Paginate one section: returns { pages: [html], printed:
+   [items in printed order] }. Own-sentences sections mix
+   circle + draw items; each kind paginates with its own
+   capacity. Pagination is sequential (paginateItems): no
+   picture ever repeats on a printed page, and the printed
+   numbers run in reading order. */
+function paginateSection(section, data, opts) {
+  opts = opts || {};
   var isCustom = section.activity.id === 'custom';
-  /* Own-sentences sections mix circle + draw items; each
-     kind paginates with its own capacity. Every section
-     paginates greedily (paginateItems): no picture ever
-     repeats on a printed page, and item numbers follow
-     the section order so answer keys always match. */
   var capFor = function (it) {
-    return isCustom ? (it.type === 'draw' ? 2 : 4) : capacityFor(section.activity.id);
+    return isCustom ? (it.type === 'draw' ? 2 : capacityFor('custom', opts.density))
+      : capacityFor(section.activity.id, opts.density);
   };
   var kindOf = function (it) { return isCustom ? it.type : section.activity.id; };
-  return paginateItems(section.items, capFor, kindOf).map(function (entries) {
+  var entryPages = paginateItems(section.items, capFor, kindOf);
+  var printed = [];
+  var pages = entryPages.map(function (entries) {
+    entries.forEach(function (x) { printed.push(x.it); });
     return '<div class="bk-page">' + headHtml(section, data, opts) +
-      entries.map(function (x) { return itemHtml(x.it, x.n); }).join('') +
+      entries.map(function (x) { return itemHtml(x.it, x.n, opts); }).join('') +
       footHtml(data, opts) + '</div>';
   });
+  return { pages: pages, printed: printed };
+}
+
+function sectionPages(section, data, opts) {
+  return paginateSection(section, data, opts).pages;
+}
+
+/* The section's items in the order they will print. */
+function sectionPrintedItems(section, opts) {
+  return paginateSection(section, {}, opts).printed;
+}
+
+/* One answer-key entry for one printed item (same shapes
+   the engine's deriveAnswerKeys produces). */
+function keyEntryForItem(it) {
+  if (it.type === 'circle') return it.correct.w;
+  if (it.type === 'builder') return it.answer;
+  if (it.type === 'comp') return it.questions.map(function (q) { return q.answer; }).join(' · ');
+  if (it.type === 'seq') return it.correctOrder.map(function (st) { return st.s; }).join(' → ');
+  return null;
+}
+
+/* Answer keys derived from the PRINTED items in PRINTED
+   order — the exact rows a reader meets, in the order they
+   meet them. This is what the built book prints. */
+function keysFromPrinted(sectionsPrinted) {
+  var keys = [];
+  sectionsPrinted.forEach(function (sp) {
+    var entries = [];
+    sp.printed.forEach(function (it) {
+      var e = keyEntryForItem(it);
+      if (e != null) entries.push(e);
+    });
+    if (entries.length) keys.push({ activity: sp.section.activity, entries: entries });
+  });
+  return keys;
 }
 
 /* ---------- front matter ---------- */
@@ -441,16 +551,19 @@ function coverPage(data, opts, design) {
   var heroHtml = hero.map(function (e, i) {
     return '<span class="' + (i === 0 ? 'cov-hero-main' : 'cov-hero-side') + '">' + esc(e) + '</span>';
   }).join('');
+  var seriesPill = (opts && opts.seriesIndex && opts.seriesTotal)
+    ? '<span class="cov-pill alt">BOOK ' + opts.seriesIndex + ' OF ' + opts.seriesTotal + '</span>' : '';
   return '<div class="bk-page bk-cover">' +
     '<div class="cov-band cov-band-top"></div>' +
-    '<div class="cov-level-badge"><span class="clb-name">' + esc(data.levelName) + '</span>' +
-    '<span class="clb-ages">AGES 4–7</span></div>' +
-    '<div class="cov-series"><span class="cov-pill">EARLY READER SERIES</span></div>' +
+    '<div class="cov-toprow"><span class="cov-flex"></span>' +
+    '<span class="cov-pill">EARLY READER SERIES</span>' +
+    '<span class="cov-badge-cell"><span class="cov-level-badge"><span class="clb-name">' + esc(data.levelName) + '</span>' +
+    '<span class="clb-ages">AGES 4–7</span></span></span></div>' +
     '<h1 class="cov-title">' + esc(data.title) + '</h1>' +
     '<div class="cov-patterns">' + esc(data.patterns) + '</div>' +
     '<div class="cov-subtitle">Phonics • Sounds • First Words</div>' +
     '<div class="cov-pills cov-badges"><span class="cov-pill dec">✓ 100% DECODABLE</span>' +
-    '<span class="cov-pill dec">✓ ANSWER KEYS INSIDE</span></div>' +
+    '<span class="cov-pill dec">✓ ANSWER KEYS INSIDE</span>' + seriesPill + '</div>' +
     '<div><span class="cov-belongs">This book belongs to: <b>' +
     (data.childName ? esc(data.childName) : '____________') + '</b></span></div>' +
     '<div class="cov-hero-stage">' + heroHtml + '</div>' +
@@ -528,9 +641,9 @@ function certificatePage(data, opts, design) {
     '</div></div>';
 }
 
-function answerKeyPages(data, opts) {
+function answerKeyPages(data, opts, keys) {
   var pages = [];
-  data.answerKeys.forEach(function (k) {
+  (keys || data.answerKeys).forEach(function (k) {
     for (var i = 0; i < k.entries.length; i += 36) {
       var part = k.entries.slice(i, i + 36).map(function (e, j) {
         return '<li>' + esc(e) + '</li>';
@@ -618,14 +731,20 @@ function buildBook(data, opts) {
   push(howToPage(data, opts), true);
   push(focusWordsPage(data, opts), true);
   var sectionPageCounts = [];
+  var sectionsPrinted = [];
   data.sections.forEach(function (s) {
-    var sp = sectionPages(s, data, opts);
-    sectionPageCounts.push({ name: s.activity.name, count: sp.length });
-    sp.forEach(function (p) { push(p, true); });
+    var res = paginateSection(s, data, opts);
+    sectionPageCounts.push({ name: s.activity.name, count: res.pages.length });
+    sectionsPrinted.push({ section: s, printed: res.printed });
+    res.pages.forEach(function (p) { push(p, true); });
   });
+  /* the printed keys are derived from the printed items in
+     printed order — not from the section arrays — so what
+     the key page says is exactly what the pages show */
+  var printedKeys = keysFromPrinted(sectionsPrinted);
   push(trackerPage(data, sectionPageCounts, opts), true);
   push(certificatePage(data, opts, design), true);
-  answerKeyPages(data, opts).forEach(function (p) { push(p, true); });
+  answerKeyPages(data, opts, printedKeys).forEach(function (p) { push(p, true); });
   if (opts.backCover !== false) push(backCoverPage(data, opts), false);
   /* page numbers in a small decorative circle on every
      interior page (covers stay clean). Every page string
@@ -638,7 +757,60 @@ function buildBook(data, opts) {
     var badge = '<div class="pg-num"><span>' + n + '</span></div>';
     return html.slice(0, html.length - '</div>'.length) + badge + '</div>';
   });
-  return { html: out.join('\n'), pageCount: pages.length };
+  return { html: out.join('\n'), pageCount: pages.length, keys: printedKeys };
+}
+
+/* estimatePageCount(data, opts) — the book's page count
+   WITHOUT building any HTML: same pagination, same front
+   and back matter, same key-page chunking as buildBook.
+   Powers the studio's live Print-Check panel. */
+function estimatePageCount(data, opts) {
+  opts = opts || {};
+  var count = 0;
+  if (opts.cover !== false) count += 1;
+  count += 3; // belongs-to + how-to + focus words
+  var sectionsPrinted = [];
+  data.sections.forEach(function (s) {
+    var res = paginateSection(s, data, opts);
+    count += res.pages.length;
+    sectionsPrinted.push({ section: s, printed: res.printed });
+  });
+  count += 2; // tracker + certificate
+  keysFromPrinted(sectionsPrinted).forEach(function (k) {
+    count += Math.ceil(k.entries.length / 36);
+  });
+  if (opts.backCover !== false) count += 1;
+  return count;
+}
+
+/* Contents page for a combined Series Builder book.
+   booksMeta: [{ n, levelName, designName, pages }] */
+function seriesContentsPage(seriesTitle, booksMeta, childName, business) {
+  var rows = booksMeta.map(function (b) {
+    return '<div class="contents-row"><span><span class="c-book">Book ' + b.n + '</span> · ' +
+      esc(b.levelName) + '</span><span class="c-meta">' + esc(b.designName) + ' · ' + b.pages + ' pages</span></div>';
+  }).join('');
+  return '<div class="bk-page bk-contents"><h2>' + esc(seriesTitle) + '</h2>' +
+    '<div class="contents-sub">A series of ' + booksMeta.length + ' decodable reading books' +
+    (childName ? ' for <b>' + esc(childName) + '</b>' : '') + ' — read them in order; every book keeps all the sounds from the books before it.</div>' +
+    rows +
+    '<div class="contents-sub" style="margin-top:6mm">Created with PhonicsStrip Studio Pro · ' + esc(business || 'Songlap Deals') + '</div></div>';
+}
+
+/* Prefix every selector in a book stylesheet with a scope
+   class, so several differently-designed books can share
+   one combined document (Series Builder). The @page rule
+   is dropped — the caller supplies one for the series. */
+function scopeCss(css, scope) {
+  var noPage = String(css).replace(/@page\s*{[^}]*}/, '');
+  return noPage.split('}').map(function (chunk) {
+    var i = chunk.indexOf('{');
+    if (i === -1) return chunk;
+    var sel = chunk.slice(0, i).trim();
+    if (!sel) return chunk;
+    var scoped = sel.split(',').map(function (s) { return scope + ' ' + s.trim(); }).join(', ');
+    return scoped + ' ' + chunk.slice(i);
+  }).join('}');
 }
 
 /* ---------- KDP wrap cover ---------- */
@@ -667,34 +839,34 @@ function wrapCoverCss(design, dims) {
   return '' +
   '@page { size: ' + dims.totalWidthIn + 'in ' + dims.totalHeightIn + 'in; margin: 0; }' +
   'body { margin: 0; font-family: ' + d.cellFont + '; }' +
-  '.wrap { display: flex; width: ' + dims.totalWidthIn + 'in; height: ' + dims.totalHeightIn + 'in; background: ' + d.coverBg + '; color: ' + d.coverText + '; }' +
+  '.kdp-wrap { display: flex; width: ' + dims.totalWidthIn + 'in; height: ' + dims.totalHeightIn + 'in; background: ' + d.coverBg + '; color: ' + d.coverText + '; }' +
   '.wrap-back, .wrap-front { width: ' + (dims.trimW + dims.bleed) + 'in; box-sizing: border-box; padding: 0.45in 0.4in; text-align: center; }' +
   '.wrap-back { padding-left: ' + (dims.bleed + 0.3) + 'in; }' +
   '.wrap-front { padding-right: ' + (dims.bleed + 0.3) + 'in; }' +
   '.wrap-spine { width: ' + dims.spineIn + 'in; background: ' + d.headerBg + '; color: ' + d.headerText + '; display: flex; align-items: center; justify-content: center; }' +
   '.wrap-spine span { writing-mode: vertical-rl; font-family: ' + d.headerFont + '; font-size: 10pt; letter-spacing: 1px; white-space: nowrap; }' +
-  '.wrap .card { background: ' + d.cardBg + '; color: ' + d.cellText + '; border: 3px solid ' + d.accent + '; border-radius: 14px; padding: 0.3in 0.3in 0.25in; }' +
-  '.wrap h1 { font-family: ' + d.headerFont + '; color: ' + d.headerBg + '; font-size: 30pt; line-height: 1.15; margin: 0.1in 0; }' +
-  '.wrap h2 { font-family: ' + d.headerFont + '; font-size: 14pt; font-weight: normal; margin: 0 0 0.12in; }' +
-  '.wrap .motif { font-size: 46pt; line-height: 1.2; }' +
-  '.wrap .cluster { font-size: 19pt; letter-spacing: 6px; margin-top: 0.05in; }' +
-  '.wrap .badge { display: inline-block; background: ' + d.headerBg + '; color: ' + d.headerText + '; font-size: 9pt; font-weight: bold; letter-spacing: 2.5px; padding: 0.07in 0.25in; border-radius: 999px; }' +
-  '.wrap .badge.alt { background: ' + d.accent + '; color: #ffffff; }' +
-  '.wrap .badge.dec { background: ' + d.cardBg + '; color: ' + d.headerBg + '; border: 2px solid ' + d.headerBg + '; }' +
-  '.wrap .plate { background: ' + d.accent + '; border-radius: 16px; padding: 0.07in; margin-top: 0.18in; }' +
-  '.wrap .plate-in { background: ' + d.cardBg + '; border-radius: 12px; padding: 0.22in 0.2in 0.18in; }' +
-  '.wrap .tiles { margin-top: 0.22in; }' +
-  '.wrap .tile { display: inline-block; background: ' + d.cardBg + '; border: 2px solid ' + d.cellBorder + '; border-radius: 10px; width: 0.62in; height: 0.62in; line-height: 0.62in; font-size: 20pt; margin: 0 0.04in; }' +
-  '.wrap .inside { text-align: left; font-size: 11.5pt; line-height: 1.9; list-style: none; margin: 0.1in 0; padding: 0; }' +
-  '.wrap .blurb { font-size: 11.5pt; line-height: 1.6; text-align: left; }' +
-  '.wrap .thanks { font-family: ' + d.headerFont + '; color: ' + d.headerBg + '; font-size: 14pt; margin-top: 0.22in; }' +
-  '.wrap .barcode-box { background: #ffffff; width: 2in; height: 1.2in; margin: 0.3in auto 0; border: 1px solid #cccccc; display: flex; align-items: center; justify-content: center; font-size: 8.5pt; color: #666666; }' +
-  '.wrap .biz { font-size: 10pt; letter-spacing: 1px; margin-top: 0.22in; }' +
-  '.wrap .hero { margin-top: 0.16in; }' +
-  '.wrap .stairs { display: flex; align-items: flex-end; justify-content: center; gap: 0.045in; margin-top: 0.16in; }' +
-  '.wrap .wstair { flex: 0 0 0.52in; display: flex; align-items: flex-end; justify-content: center; border: 2px solid ' + d.headerBg + '; color: ' + d.headerBg + '; background: ' + d.cellBg + '; border-radius: 4px 4px 0 0; font-size: 8pt; padding-bottom: 0.03in; box-sizing: border-box; }' +
-  '.wrap .wstair.cur { background: ' + d.headerBg + '; color: ' + d.headerText + '; font-weight: bold; }' +
-  '.wrap .stairs-cap { font-size: 9.5pt; margin-top: 0.08in; }' +
+  '.kdp-wrap .card { background: ' + d.cardBg + '; color: ' + d.cellText + '; border: 3px solid ' + d.accent + '; border-radius: 14px; padding: 0.3in 0.3in 0.25in; }' +
+  '.kdp-wrap h1 { font-family: ' + d.headerFont + '; color: ' + d.headerBg + '; font-size: 30pt; line-height: 1.15; margin: 0.1in 0; }' +
+  '.kdp-wrap h2 { font-family: ' + d.headerFont + '; font-size: 14pt; font-weight: normal; margin: 0 0 0.12in; }' +
+  '.kdp-wrap .motif { font-size: 46pt; line-height: 1.2; }' +
+  '.kdp-wrap .cluster { font-size: 19pt; letter-spacing: 6px; margin-top: 0.05in; }' +
+  '.kdp-wrap .badge { display: inline-block; background: ' + d.headerBg + '; color: ' + d.headerText + '; font-size: 9pt; font-weight: bold; letter-spacing: 2.5px; padding: 0.07in 0.25in; border-radius: 999px; margin: 0 0.035in; }' +
+  '.kdp-wrap .badge.alt { background: ' + d.accent + '; color: #ffffff; }' +
+  '.kdp-wrap .badge.dec { background: ' + d.cardBg + '; color: ' + d.headerBg + '; border: 2px solid ' + d.headerBg + '; }' +
+  '.kdp-wrap .plate { background: ' + d.accent + '; border-radius: 16px; padding: 0.07in; margin-top: 0.18in; }' +
+  '.kdp-wrap .plate-in { background: ' + d.cardBg + '; border-radius: 12px; padding: 0.22in 0.2in 0.18in; }' +
+  '.kdp-wrap .tiles { margin-top: 0.22in; }' +
+  '.kdp-wrap .tile { display: inline-block; background: ' + d.cardBg + '; border: 2px solid ' + d.cellBorder + '; border-radius: 10px; width: 0.62in; height: 0.62in; line-height: 0.62in; font-size: 20pt; margin: 0 0.04in; }' +
+  '.kdp-wrap .inside { text-align: left; font-size: 11.5pt; line-height: 1.9; list-style: none; margin: 0.1in 0; padding: 0; }' +
+  '.kdp-wrap .blurb { font-size: 11.5pt; line-height: 1.6; text-align: left; }' +
+  '.kdp-wrap .thanks { font-family: ' + d.headerFont + '; color: ' + d.headerBg + '; font-size: 14pt; margin-top: 0.22in; }' +
+  '.kdp-wrap .barcode-box { background: #ffffff; width: 2in; height: 1.2in; margin: 0.3in auto 0; border: 1px solid #cccccc; display: flex; align-items: center; justify-content: center; font-size: 8.5pt; color: #666666; }' +
+  '.kdp-wrap .biz { font-size: 10pt; letter-spacing: 1px; margin-top: 0.22in; }' +
+  '.kdp-wrap .hero { margin-top: 0.16in; }' +
+  '.kdp-wrap .stairs { display: flex; align-items: flex-end; justify-content: center; gap: 0.045in; margin-top: 0.16in; }' +
+  '.kdp-wrap .wstair { flex: 0 0 0.52in; display: flex; align-items: flex-end; justify-content: center; border: 2px solid ' + d.headerBg + '; color: ' + d.headerBg + '; background: ' + d.cellBg + '; border-radius: 4px 4px 0 0; font-size: 8pt; padding-bottom: 0.03in; box-sizing: border-box; }' +
+  '.kdp-wrap .wstair.cur { background: ' + d.headerBg + '; color: ' + d.headerText + '; font-weight: bold; }' +
+  '.kdp-wrap .stairs-cap { font-size: 9.5pt; margin-top: 0.08in; }' +
   '';
 }
 
@@ -725,7 +897,7 @@ function wrapCoverHtml(meta, design, dims, pack) {
       return '<span class="wstair' + ((i + 1) === meta.level ? ' cur' : '') + '" style="height:' + h + 'in">L' + (i + 1) + '</span>';
     }).join('') + '</div><div class="stairs-cap">Collect all 8 levels — this is Level ' + meta.level + '</div>';
   }
-  return '<div class="wrap">' +
+  return '<div class="kdp-wrap">' +
     '<div class="wrap-back"><div class="card"><h2 style="font-size:17pt">What’s inside this book</h2>' +
     '<ul class="inside">' + inside + '</ul>' +
     '<p class="blurb">' + esc(meta.blurb || '') + '</p>' +
@@ -750,9 +922,72 @@ function wrapCoverHtml(meta, design, dims, pack) {
     '</div>';
 }
 
+/*
+ * listingKitFor(data, facts) — Listing Kit (lite): KDP and
+ * Etsy/TpT listing copy generated from the BUILT BOOK's
+ * real facts only (level, patterns, page count, activities,
+ * focus words, trim). No income claims, no invented
+ * numbers. facts: { pageCount, trimLabel, business }
+ */
+function listingKitFor(data, facts) {
+  facts = facts || {};
+  var pageCount = facts.pageCount || 0;
+  var trimLabel = facts.trimLabel || '8.5×11 in';
+  var actNames = data.sections.map(function (s) { return s.activity.name; });
+  var totalItems = data.sections.reduce(function (a, s) { return a + s.items.length; }, 0);
+  var actList = data.sections.map(function (s) {
+    return s.activity.name + ' (' + s.items.length + ')';
+  }).join(' · ');
+  var levelShort = (LEVELS_SHORT[data.level - 1] || data.patterns);
+  var kdpTitle = data.title + ' — ' + data.levelName + ' Decodable Reader: ' +
+    totalItems + ' Phonics Reading Strips with Answer Keys (Ages 4–7)';
+  var kdpSubtitle = data.patterns + ' · 100% decodable sentences, near-miss picture choices, ' +
+    'progress tracker and Super Reader certificate · ' + pageCount + ' pages · ' + trimLabel;
+  var kdpDescription =
+    'A gentle first step into real reading. Every sentence in ' + data.title + ' is 100% decodable at ' +
+    data.levelName + ' (' + data.patterns + '), using only this level’s sounds plus its Focus Words — so a beginner ' +
+    'can sound out every word, with no guessing and no memorised word lists.\n\n' +
+    'What’s inside (' + pageCount + ' pages):\n' + actList + '\n' +
+    'Plus a “This book belongs to” page, a how-to page for parents and teachers, the Focus Words page, ' +
+    'a Progress Tracker, a Super Reader Certificate, full answer keys and a designed back cover.\n\n' +
+    'The three pictures on each strip are near-misses from the same group, so children must read the words — ' +
+    'not guess from the picture type. Levels are cumulative: this book keeps every sound from the levels before it.\n\n' +
+    'For ages 4–7 · Kindergarten and Grade 1 · classroom, homeschool and reading intervention.';
+  var keywords = [
+    'decodable readers ' + levelShort.toLowerCase(),
+    'phonics workbook kindergarten',
+    'learn to read phonics strips',
+    'decodable reading books level ' + data.level,
+    'science of reading decodable text',
+    'phonics worksheets with answer keys',
+    'early reader workbook ages 4-7'
+  ];
+  var etsyTitle = data.title + ' | ' + data.levelName + ' Decodable Reading Strips | Printable Phonics Workbook | ' +
+    totalItems + ' Activities with Answer Keys | Ages 4–7';
+  var bullets = [
+    pageCount + ' print-ready pages (' + trimLabel + '), designed front and back covers included',
+    totalItems + ' activities: ' + actNames.join(', '),
+    '100% decodable at ' + data.levelName + ' — ' + data.patterns,
+    data.focusWords.length + ' Focus Words (sight words) practised in context',
+    'Full answer keys, Progress Tracker and Super Reader Certificate included',
+    'Near-miss picture choices on every strip — children read the words, not guess',
+    'Print at 100% scale; the matching KDP wrap cover can be made in the same studio'
+  ];
+  var etsyDescription = kdpDescription + '\n\nThis is a printable digital download of the finished book. ' +
+    'Print as many copies as your licence allows for your own classroom, homeschool or products.';
+  return {
+    kdpTitle: kdpTitle, kdpSubtitle: kdpSubtitle, kdpDescription: kdpDescription,
+    keywords: keywords, etsyTitle: etsyTitle, etsyDescription: etsyDescription,
+    bullets: bullets, totalItems: totalItems, pageCount: pageCount
+  };
+}
+
 var PhonicsBook = {
   esc: esc, TRIMS: TRIMS, bookCss: bookCss, buildBook: buildBook,
-  capacityFor: capacityFor, sectionPages: sectionPages,
+  capacityFor: capacityFor, sectionPages: sectionPages, paginateSection: paginateSection,
+  sectionPrintedItems: sectionPrintedItems, keyEntryForItem: keyEntryForItem,
+  keysFromPrinted: keysFromPrinted, estimatePageCount: estimatePageCount,
+  seriesContentsPage: seriesContentsPage, scopeCss: scopeCss, listingKitFor: listingKitFor,
   itemPics: itemPics, paginateItems: paginateItems, decoFor: decoFor,
   isPicDataUrl: isPicDataUrl, isPicAsset: isPicAsset, picHtml: picHtml,
   WRAP_PAPER_FACTORS: WRAP_PAPER_FACTORS, WRAP_BLEED_IN: WRAP_BLEED_IN,
