@@ -416,6 +416,34 @@ img, svg { max-width: 100%; }
 .help ul { margin-left: 20px; }
 .help li { font-size: 14px; line-height: 1.65; margin-bottom: 6px; }
 
+/* ---------- simplify pass: guided path, helpers, disclosure ---------- */
+.panel-help { font-size: 13.5px; color: var(--muted); line-height: 1.55; margin-bottom: 12px; }
+.panel-quick {
+  background: linear-gradient(160deg, #FFFBF0 0%, var(--sage-tint) 100%);
+  border: 1.5px solid var(--gold);
+}
+.steps-guide { list-style: none; margin: 2px 0 12px; }
+.steps-guide li { display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; line-height: 1.5; margin-bottom: 9px; }
+.steps-guide .sn {
+  flex: none; width: 26px; height: 26px; border-radius: 50%; margin-top: 1px;
+  background: var(--forest); color: #fff; font-weight: 700; font-size: 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.quick-or { text-align: center; font-size: 12px; font-weight: 700; letter-spacing: .6px; color: var(--muted); margin: 12px 0 9px; }
+.adv {
+  border: 1.5px dashed var(--sage); border-radius: 12px;
+  padding: 4px 14px 10px; margin-top: 6px; background: #FDFCFA;
+}
+.adv-toggle {
+  width: 100%; background: none; border: none; cursor: pointer; min-height: 44px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font: inherit; font-size: 14px; font-weight: 700; color: var(--forest);
+  padding: 8px 0; text-align: left;
+}
+.adv-toggle .adv-chev { flex: none; font-size: 13px; transition: transform .18s ease; }
+.adv.open .adv-chev { transform: rotate(180deg); }
+.adv-body { padding-top: 2px; }
+
 /* ---------- mobile action bars ---------- */
 .mobile-actions { display: none; }
 .build-mobile-actions { display: none; }
