@@ -236,21 +236,53 @@ function nounsInSentence(C, levelId, sentence) {
 
 /* ---------- sentence generation ---------- */
 
+/* The semantic class of a noun object under the content
+   module (custom words keep their bank category). */
+function nounClassOf(C, noun) {
+  if (C && C.phsNounClass) return C.phsNounClass(noun);
+  if (!noun) return 'objects';
+  if (noun.c === 'animals') return 'animal';
+  if (noun.c === 'people') return 'person';
+  return noun.c;
+}
+function classAllowed(list, cls) {
+  return !!list && (list.indexOf('any') !== -1 || list.indexOf(cls) !== -1);
+}
+
 /* Fill one template with bank words. Returns
-   { sentence, target, template } where target is the noun
-   object the {noun} slot filled (the strip's correct
-   picture), or null when the template has no {noun} slot.
+   { sentence, target, template, fills } where target is the
+   noun object the {noun} slot filled (the strip's correct
+   picture), or null when the template has no {noun} slot,
+   and fills records which bank words filled which slots
+   (the semantic check and the tests reason over it).
    With a book context (ctx), noun slots prefer the
    least-used nouns in the book so far — picture usage is
-   balanced across the whole book instead of clustering. */
+   balanced across the whole book instead of clustering.
+   Slot context rules are hard constraints: a noun after
+   "a"/"an" (or "a {adj}") must be countable and singular
+   in form, a noun right before " is " must not be a
+   plural-form noun ("feet"), and a {nounPl} slot never
+   takes an uncountable noun. */
 function fillTemplate(C, levelId, template, rng, ctx) {
   var cum = C.phsCumulative(levelId);
   var used = {};
-  function takeNoun() {
+  var fills = {};
+  var mass = C.PHS_MASS_NOUNS || [];
+  var pluralForms = C.PHS_PLURAL_NOUNS || [];
+  function nounContextOK(n, context) {
+    if (!context) return true;
+    if (context.article && (mass.indexOf(n.w) !== -1 || pluralForms.indexOf(n.w) !== -1)) return false;
+    if (context.isSubject && pluralForms.indexOf(n.w) !== -1) return false;
+    if (context.plural && mass.indexOf(n.w) !== -1) return false;
+    return true;
+  }
+  function takeNoun(context) {
     var pool = cum.nouns.filter(function (n) { return !used[n.w]; });
     if (!pool.length) pool = cum.nouns;
-    var n;
     pool = themed(pool);
+    var filtered = pool.filter(function (n) { return nounContextOK(n, context); });
+    if (filtered.length) pool = filtered;
+    var n;
     if (ctx && ctx.nounUse) {
       var min = Math.min.apply(null, pool.map(function (x) { return ctx.nounUse[x.w] || 0; }));
       var least = pool.filter(function (x) { return (ctx.nounUse[x.w] || 0) === min; });
@@ -274,27 +306,183 @@ function fillTemplate(C, levelId, template, rng, ctx) {
     }
     return pool;
   }
-  function plural(w) { return /(s|x|ch|sh)$/.test(w) ? w + 'es' : w + 's'; }
+  function plural(w) {
+    if (pluralForms.indexOf(w) !== -1) return w;
+    return /(s|x|ch|sh)$/.test(w) ? w + 'es' : w + 's';
+  }
   var name1 = pick(rng, cum.names);
-  var name2 = pick(rng, cum.names.filter(function (n) { return n !== name1; }).concat(name1));
+  /* the second name is never the first again when the level
+     has another name ("Chad and Chad can nap" was a real
+     shipped bug) */
+  var otherNames = cum.names.filter(function (n) { return n !== name1; });
+  var name2 = otherNames.length ? pick(rng, otherNames) : name1;
   var verb1 = pick(rng, cum.verbs);
   var verb2 = pick(rng, cum.verbs.filter(function (v) { return v !== verb1; }).concat(verb1));
+  fills.name = name1; fills.name2 = name2; fills.verb = verb1; fills.verb2 = verb2;
   var text = template.replace(/\{nounPl\}|\{noun2\}|\{noun\}|\{name2\}|\{name\}|\{verb2\}|\{verb\}|\{adj\}|\{place\}/g,
-    function (slot) {
+    function (slot, offset, string) {
+      var prefix = string.slice(0, offset);
+      var suffix = string.slice(offset + slot.length);
       switch (slot) {
-        case '{noun}': { var n0 = takeNoun(); if (!target) target = n0; return n0.w; }
-        case '{noun2}': return takeNoun().w;
-        case '{nounPl}': return plural(takeNoun().w);
+        case '{noun}': {
+          var context = {
+            article: /(^|\s)(a|an) $/.test(prefix) || /a \{adj\} $/.test(prefix),
+            isSubject: /^ is /.test(suffix)
+          };
+          var n0 = takeNoun(context);
+          if (!target) { target = n0; fills.noun = n0; } else if (!fills.noun2) { fills.noun2 = n0; }
+          return n0.w;
+        }
+        case '{noun2}': {
+          var n2 = takeNoun({
+            article: /(^|\s)(a|an) $/.test(prefix) || /a \{adj\} $/.test(prefix),
+            isSubject: /^ is /.test(suffix)
+          });
+          fills.noun2 = n2;
+          return n2.w;
+        }
+        case '{nounPl}': {
+          var np = takeNoun({ plural: true });
+          fills.nounPl = np;
+          return plural(np.w);
+        }
         case '{name}': return name1;
         case '{name2}': return name2;
         case '{verb}': return verb1;
         case '{verb2}': return verb2;
-        case '{adj}': return pick(rng, cum.adjectives);
-        case '{place}': return pick(rng, cum.places);
+        case '{adj}': { var a = pick(rng, cum.adjectives); fills.adj = a; return a; }
+        case '{place}': { var p = pick(rng, cum.places); fills.place = p; return p; }
         default: return slot;
       }
     });
-  return { sentence: text, target: target, template: template };
+  return { sentence: text, target: target, template: template, fills: fills };
+}
+
+/* ---------- semantic sentence check ---------- */
+
+/* Which noun (or 'person') an {adj} in the template
+   describes: attributive ("a {adj} {noun}") -> that noun;
+   predicative ("... is/are/was {adj}") -> the nearest
+   subject slot before it; the compound template
+   "{noun} and the {noun2} are {adj}" -> 'both'. */
+function adjectiveSubject(template, fills) {
+  if (/\{noun\} and the \{noun2\} are \{adj\}/.test(template)) return 'both';
+  /* attributive use: the adjective stands right before its
+     noun ("The {adj} {noun} is...", "a {adj} {noun}") */
+  if (/\{adj\} \{noun\}/.test(template)) return fills.noun || null;
+  var idx = template.indexOf('{adj}');
+  var prefix = template.slice(0, idx);
+  var candidates = [
+    { token: '{nounPl}', value: 'plural' },
+    { token: '{noun2}', value: fills.noun2 || null },
+    { token: '{noun}', value: fills.noun || null },
+    { token: '{name}', value: 'person' }
+  ];
+  var best = null, bestAt = -1;
+  candidates.forEach(function (c) {
+    var at = prefix.lastIndexOf(c.token);
+    if (at > bestAt) { bestAt = at; best = c.value; }
+  });
+  return best;
+}
+
+/* How one verb slot is used in a template: its subject
+   (the nearest subject slot or fixed subject word before
+   it — "it" in a second clause points back to the clause's
+   noun) and its object (a following "the {noun}" slot), or
+   a motion use ("{verb} to the {place}"). */
+function verbUse(C, template, slot, fills) {
+  var idx = template.indexOf(slot);
+  if (idx === -1) return null;
+  var prefix = ' ' + template.slice(0, idx);
+  var suffix = template.slice(idx + slot.length);
+  var subjects = [
+    { token: '{name2}', cls: 'person', noun: null },
+    { token: '{name}', cls: 'person', noun: null },
+    { token: '{noun2}', cls: null, noun: fills.noun2 },
+    { token: '{noun}', cls: null, noun: fills.noun },
+    { token: ' We ', cls: 'person', noun: null },
+    { token: ' They ', cls: 'person', noun: null },
+    { token: ' you ', cls: 'person', noun: null },
+    { token: ' Who ', cls: 'person', noun: null },
+    { token: ' it ', cls: null, noun: fills.noun }
+  ];
+  var best = null, bestAt = -1;
+  subjects.forEach(function (s) {
+    var at = prefix.lastIndexOf(s.token);
+    if (at > bestAt) { bestAt = at; best = s; }
+  });
+  var use = { subjectClass: 'person', subjectNoun: null, object: null, objectClass: null, motion: false };
+  if (best) {
+    use.subjectNoun = best.noun || null;
+    use.subjectClass = best.noun ? nounClassOf(C, best.noun) : best.cls;
+  }
+  var om = /^\s+(the|a) \{(noun2|noun)\}/.exec(suffix);
+  if (om) {
+    use.object = om[2] === 'noun2' ? fills.noun2 : fills.noun;
+    if (use.object) use.objectClass = nounClassOf(C, use.object);
+  } else if (/^\s+to the \{place\}/.test(suffix)) {
+    use.motion = true;
+  }
+  return use;
+}
+
+/* semanticCheck(C, levelId, template, fills) -> bool.
+   The root fix for nonsense sentences: emotion adjectives
+   only on people/animals, and every verb used inside its
+   frame (valid subject class, valid object class,
+   intransitive verbs never take an object, "to the
+   {place}" needs a movement verb, a noun never verbs
+   itself — "The rain can rain"). Verbs with no frame entry
+   are left alone (the frames cover the whole bank). */
+function semanticCheck(C, levelId, template, fills) {
+  if (!fills) return true;
+  var frames = C.PHS_VERB_FRAMES || {};
+  var emotions = C.PHS_EMOTION_ADJS || [];
+  function animate(noun) { return !!noun && C.phsIsAnimateClass(nounClassOf(C, noun)); }
+  if (fills.adj && emotions.indexOf(fills.adj) !== -1) {
+    var subj = adjectiveSubject(template, fills);
+    if (subj === 'both') {
+      if (!animate(fills.noun) || !animate(fills.noun2)) return false;
+    } else if (subj === 'plural') {
+      if (!animate(fills.nounPl)) return false;
+    } else if (subj && subj !== 'person') {
+      if (!animate(subj)) return false;
+    }
+  }
+  var okAll = true;
+  [['{verb}', fills.verb], ['{verb2}', fills.verb2]].forEach(function (pair) {
+    if (!okAll || !pair[1]) return;
+    var frame = frames[pair[1]];
+    if (!frame) return;
+    var use = verbUse(C, template, pair[0], fills);
+    if (!use) return;
+    if (use.subjectNoun && use.subjectNoun.w === pair[1]) { okAll = false; return; }
+    if (!classAllowed(frame.s, use.subjectClass)) { okAll = false; return; }
+    if (use.object) {
+      if (!frame.o || !classAllowed(frame.o, use.objectClass)) okAll = false;
+    } else {
+      if (!frame.i) okAll = false;
+      else if (use.motion && !frame.m) okAll = false;
+    }
+  });
+  return okAll;
+}
+
+/* The content words introduced AT a level (nouns / verbs /
+   adjectives / places / extras — not sight words, not
+   names): the level's target-pattern practice words. */
+function levelWordSet(C, levelId) {
+  var lv = C.phsLevelById(levelId);
+  var set = {};
+  lv.nouns.forEach(function (n) { set[n.w] = true; });
+  ['verbs', 'adjectives', 'places', 'extras'].forEach(function (k) {
+    lv[k].forEach(function (w) { set[String(w).toLowerCase()] = true; });
+  });
+  return set;
+}
+function sentenceHasLevelWord(sentence, set) {
+  return sentenceWords(sentence).some(function (w) { return !!set[w.toLowerCase()]; });
 }
 
 /* Record a finished item's (template + target noun) pair in
@@ -316,9 +504,19 @@ function commitPair(ctx, filled) {
    - when ctx.requireTarget is set (picture strips), the
      target must exist and sit in a category with at least
      3 members, so near-miss distractors can always be
-     drawn from its own group. */
+     drawn from its own group;
+   - when ctx.density is set (book builds), sentences that
+     practise a word introduced AT this level are preferred:
+     the first fully-valid sentence without one is kept as
+     a fallback while generation keeps trying for one with.
+   Every candidate must also pass the semantic check —
+   banks decide what can be said, semantics decides what
+   makes sense (no feelings on things, no intransitive
+   verbs with objects, no impossible actors). */
 function generateSentence(C, levelId, rng, usedSet, ctx) {
   var cum = C.phsCumulative(levelId);
+  var lwSet = (ctx && ctx.density) ? levelWordSet(C, levelId) : null;
+  var fallback = null;
   for (var attempt = 0; attempt < 200; attempt++) {
     var tpl = pick(rng, cum.templates);
     var filled = fillTemplate(C, levelId, tpl, rng, ctx);
@@ -331,8 +529,17 @@ function generateSentence(C, levelId, rng, usedSet, ctx) {
     if (usedSet && usedSet[key]) continue;
     var v = validateSentence(filled.sentence, levelId, C);
     if (!v.ok) continue; // should not happen — banks are the truth; belt & braces
+    if (!semanticCheck(C, levelId, filled.template, filled.fills)) continue;
+    if (lwSet && attempt < 60 && !sentenceHasLevelWord(filled.sentence, lwSet)) {
+      if (!fallback) fallback = filled;
+      continue;
+    }
     if (usedSet) usedSet[key] = true;
     return filled;
+  }
+  if (fallback) {
+    if (usedSet) usedSet[normalizeSentenceKey(fallback.sentence)] = true;
+    return fallback;
   }
   return null;
 }
@@ -487,22 +694,41 @@ function makeCompItem(C, levelId, rng, usedSet, ctx) {
   var vsel = ctx ? ctx.picVariants : null;
   for (var attempt = 0; attempt < 200; attempt++) {
     var name = pick(rng, cum.names);
+    /* the scene noun follows "has a ..." — it must be a
+       countable, singular-form noun (never "has a wax",
+       never "has a feet") */
+    var mass = C.PHS_MASS_NOUNS || [];
+    var pluralForms = C.PHS_PLURAL_NOUNS || [];
     var nounPool = cum.nouns.filter(function (n) {
-      return nounsInCategory(C, levelId, n.c).length >= 3;
+      return nounsInCategory(C, levelId, n.c).length >= 3 &&
+        mass.indexOf(n.w) === -1 && pluralForms.indexOf(n.w) === -1;
     });
     if (ctx && ctx.themeCats && ctx.themeCats.length) {
       var themedPool = nounPool.filter(function (n) { return ctx.themeCats.indexOf(n.c) !== -1; });
       if (themedPool.length) nounPool = themedPool;
     }
     if (!nounPool.length) return null;
-    /* prefer the least-used scene picture in the book */
-    var noun = pick(rng, nounPool);
+    /* prefer the least-used scene picture in the book; on
+       most attempts, prefer nouns introduced AT this level
+       so the passage practises the level's own words */
+    var pickPool = nounPool;
+    var lvlPool = nounPool.filter(function (n) { return levelWordSet(C, levelId)[n.w]; });
+    if (lvlPool.length && rng() < 0.75) pickPool = lvlPool;
+    var noun = pick(rng, pickPool);
     if (ctx && ctx.picUse) {
-      var minUse = Math.min.apply(null, nounPool.map(function (n) { return ctx.picUse[picFor(C, packId, n, customs, vsel)] || 0; }));
-      var least = nounPool.filter(function (n) { return (ctx.picUse[picFor(C, packId, n, customs, vsel)] || 0) === minUse; });
+      var minUse = Math.min.apply(null, pickPool.map(function (n) { return ctx.picUse[picFor(C, packId, n, customs, vsel)] || 0; }));
+      var least = pickPool.filter(function (n) { return (ctx.picUse[picFor(C, packId, n, customs, vsel)] || 0) === minUse; });
       noun = pick(rng, least);
     }
-    var adj = pick(rng, cum.adjectives);
+    /* the passage's adjective must fit the noun: a feeling
+       word (sad / mad / glad) can only describe a person or
+       an animal — never "The can is sad" */
+    var adjPool = cum.adjectives.filter(function (a) {
+      return (C.PHS_EMOTION_ADJS || []).indexOf(a) === -1 ||
+        C.phsIsAnimateClass(nounClassOf(C, noun));
+    });
+    if (!adjPool.length) continue;
+    var adj = pick(rng, adjPool);
     var s1 = name + ' has a ' + noun.w + '.';
     var s2, place = null;
     if (levelId >= 2) {
@@ -539,24 +765,33 @@ function makeCompItem(C, levelId, rng, usedSet, ctx) {
       questions.push({ label: 'What', q: 'What is the ' + noun.w + ' like?', choices: adjChoices, answer: adj });
       questions[2].label = 'How';
     }
-    /* scene: a child + the passage's noun, in the active
-       picture pack. The child glyph changes when the noun
-       IS the kid, so the scene never shows one picture
-       twice. */
+    /* scene: the reader character + the passage's noun, in
+       the book's ONE art source. The character is drawn
+       with the kid noun's picture under the active pack
+       (storybook/illustrated artwork under artwork packs —
+       never a raw emoji person mixed into illustrated
+       scenes; the classic emoji under emoji packs). When
+       the noun IS the kid, the girl takes the character
+       spot, so the scene never shows one picture twice. */
     var nounPic = picFor(C, packId, noun, customs, vsel);
-    var scene = (noun.w === 'kid' ? '👦' : '🧒') + ' ' + nounPic;
+    var kidNoun = nounByWord(C, 8, 'kid');
+    var charNoun = noun.w === 'kid' ? (nounByWord(C, 8, 'girl') || kidNoun) : kidNoun;
+    var charPic = charNoun ? picFor(C, packId, charNoun, customs, vsel) : '🧒';
+    var scene = charPic + ' ' + nounPic;
     if (ctx) ctx.picUse[nounPic] = (ctx.picUse[nounPic] || 0) + 1;
     return { type: 'comp', passage: passage, scene: scene, questions: questions };
   }
   return null;
 }
 
-/* Story Sequencing item: a sequence whose min level fits,
-   steps shuffled for printing; `order` holds the correct
-   step indexes in print order -> answer key derives from it. */
+/* Story Sequencing item: a sequence LEVEL-LOCKED to this
+   level (min === levelId — a story never repeats across
+   levels in the series), steps shuffled for printing;
+   `order` holds the correct step indexes in print order ->
+   answer key derives from it. */
 function makeSeqItem(C, levelId, rng, usedSeq) {
   var pool = C.PHS_SEQUENCES.filter(function (s) {
-    return s.min <= levelId && !(usedSeq && usedSeq[s.id]);
+    return s.min === levelId && !(usedSeq && usedSeq[s.id]);
   });
   if (!pool.length) return null;
   var seq = pick(rng, pool);
@@ -838,7 +1073,7 @@ function buildBookData(cfg, C) {
   var pack = C.phsPicturePackById ? C.phsPicturePackById(cfg.pack || 'classic') : null;
   var ctx = {
     pairs: {}, nounUse: {}, picUse: {}, targetUse: {},
-    pack: pack ? pack.id : 'classic', requireTarget: false,
+    pack: pack ? pack.id : 'classic', requireTarget: false, density: true,
     customPics: customPics, picVariants: cfg.picVariants || {},
     themeCats: (cfg.themeCats && cfg.themeCats.length) ? cfg.themeCats.slice() : null
   };
@@ -939,6 +1174,7 @@ function buildBookData(cfg, C) {
   var cum = C.phsCumulative(level.id);
   return {
     id: bookId, level: level.id, levelName: level.name, patterns: level.patterns,
+    blurb: C.phsLevelBlurb ? C.phsLevelBlurb(level.id) : null,
     title: cfg.title || 'My Reading Book', childName: cfg.childName || '',
     pack: ctx.pack, themeCats: ctx.themeCats, deco: pack && pack.deco ? pack.deco : null,
     customPics: customPics, customWords: customWords, customDeco: decoMap,
@@ -1054,6 +1290,8 @@ var PhonicsEngine = {
   validateSentence: validateSentence,
   nounByWord: nounByWord, nounsInCategory: nounsInCategory, nounsInSentence: nounsInSentence,
   fillTemplate: fillTemplate, generateSentence: generateSentence,
+  semanticCheck: semanticCheck, levelWordSet: levelWordSet, sentenceHasLevelWord: sentenceHasLevelWord,
+  nounClassOf: nounClassOf,
   distractorsFor: distractorsFor, exactlyOneMatch: exactlyOneMatch,
   targetPoolExhausted: targetPoolExhausted,
   makeCircleItem: makeCircleItem, makeBuilderItem: makeBuilderItem,
