@@ -99,14 +99,37 @@ function normalizeSentenceKey(sentence) {
    picture VALUE (emoji, asset path or data URL) is the
    token the no-repeat-on-a-page rule compares, so any
    picture kind behaves exactly like the emoji it replaces. */
+/* The ordered picture candidates for a word under an
+   artwork pack: under the Storybook pack, our own storybook
+   illustration (assets/storybook/<word>.png, when the word
+   has one) comes first, then the Illustrated library
+   variants as fallbacks / rotation partners; under the
+   Illustrated pack, just the library variants. Rotation
+   (variantSel) indexes into this list, so a storybook word
+   alternates between its storybook picture and its SVG art
+   from book to book. */
+function picCandidates(C, pack, noun) {
+  var out = [];
+  if (!noun || !pack) return out;
+  if (pack.storybook && C.PHS_STORYBOOK && C.PHS_STORYBOOK[noun.w]) {
+    out.push('assets/storybook/' + noun.w + '.png');
+  }
+  if ((pack.illustrated || pack.storybook) && C.PHS_PIC_LIB && C.PHS_PIC_LIB[noun.w]) {
+    C.PHS_PIC_LIB[noun.w].forEach(function (v) { out.push(v.src); });
+  }
+  return out;
+}
+
 function picFor(C, packId, noun, customPics, variantSel) {
   if (!noun) return '';
   if (customPics && customPics[noun.w]) return customPics[noun.w];
   var pack = (C && C.phsPicturePackById && packId) ? C.phsPicturePackById(packId) : null;
-  if (pack && pack.illustrated && C.PHS_PIC_LIB && C.PHS_PIC_LIB[noun.w] && C.PHS_PIC_LIB[noun.w].length) {
-    var vars = C.PHS_PIC_LIB[noun.w];
-    var idx = variantSel && variantSel[noun.w] != null ? variantSel[noun.w] : 0;
-    return vars[((idx % vars.length) + vars.length) % vars.length].src;
+  if (pack && (pack.illustrated || pack.storybook)) {
+    var cands = picCandidates(C, pack, noun);
+    if (cands.length) {
+      var idx = variantSel && variantSel[noun.w] != null ? variantSel[noun.w] : 0;
+      return cands[((idx % cands.length) + cands.length) % cands.length];
+    }
   }
   if (pack && pack.variants && pack.variants[noun.w]) return pack.variants[noun.w];
   return noun.e;
@@ -118,18 +141,26 @@ function picFor(C, packId, noun, customPics, variantSel) {
    so a buyer's second book visibly differs from the first.
    `salt` (the Shuffle button) re-rolls which different
    variant each word lands on. Words with one variant keep
-   index 0. Pure and deterministic. */
-function nextVariantSelection(C, levelId, prev, salt) {
+   index 0. Pure and deterministic.
+   `extra` (optional, { word: count }) widens a word's
+   candidate count — the app passes 1 for every word that
+   has a Storybook picture when the Storybook pack is
+   active, so storybook words rotate through their storybook
+   illustration AND their SVG variants. Indexes stay valid
+   for narrower packs because picFor indexes modulo the
+   candidate count. */
+function nextVariantSelection(C, levelId, prev, salt, extra) {
   var lib = C.PHS_PIC_LIB || {};
   var sel = {};
   var prevSel = prev || {};
   C.phsCumulative(levelId).nouns.forEach(function (n) {
     var vars = lib[n.w];
-    if (!vars || !vars.length) return;
-    if (vars.length < 2) { sel[n.w] = 0; return; }
+    var count = (vars ? vars.length : 0) + ((extra && extra[n.w]) || 0);
+    if (!count) return;
+    if (count < 2) { sel[n.w] = 0; return; }
     var p = prevSel[n.w] || 0;
-    var step = 1 + (hashSeedString(n.w + '|' + (salt || 0)) % (vars.length - 1));
-    sel[n.w] = (p + step) % vars.length;
+    var step = 1 + (hashSeedString(n.w + '|' + (salt || 0)) % (count - 1));
+    sel[n.w] = (p + step) % count;
   });
   return sel;
 }
@@ -797,16 +828,14 @@ function buildBookData(cfg, C) {
      at the rotated variant) — and the buyer's own uploaded
      picture still wins over the artwork */
   var decoMap = {};
-  if (pack && pack.illustrated && C.PHS_PIC_LIB) {
+  if (pack && (pack.illustrated || pack.storybook) && C.PHS_PIC_LIB) {
     var emojiCount = {};
     var allNouns = C.phsCumulative(8).nouns;
     allNouns.forEach(function (n) { emojiCount[n.e] = (emojiCount[n.e] || 0) + 1; });
     allNouns.forEach(function (n) {
-      var vars = C.PHS_PIC_LIB[n.w];
-      if (emojiCount[n.e] === 1 && vars && vars.length) {
-        var vi = ctx.picVariants[n.w] || 0;
-        decoMap[n.e] = vars[((vi % vars.length) + vars.length) % vars.length].src;
-      }
+      if (emojiCount[n.e] !== 1) return;
+      var resolved = picFor(C, pack.id, n, null, ctx.picVariants);
+      if (resolved && resolved.indexOf('assets/') === 0) decoMap[n.e] = resolved;
     });
   }
   var cdm = customDecoMap(C, customPics);
@@ -888,7 +917,7 @@ var PhonicsEngine = {
   hashSeedString: hashSeedString, mulberry32: mulberry32, makeRng: makeRng,
   shuffle: shuffle, pick: pick,
   allowedWordSet: allowedWordSet, sentenceWords: sentenceWords,
-  normalizeSentenceKey: normalizeSentenceKey, picFor: picFor,
+  normalizeSentenceKey: normalizeSentenceKey, picFor: picFor, picCandidates: picCandidates,
   nextVariantSelection: nextVariantSelection,
   validateSentence: validateSentence,
   nounByWord: nounByWord, nounsInCategory: nounsInCategory, nounsInSentence: nounsInSentence,
