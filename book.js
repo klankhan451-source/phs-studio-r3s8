@@ -151,7 +151,7 @@ function bookCss(design, opts) {
   '.bk-page:last-child { page-break-after: auto; break-after: auto; }' +
   bw +
   /* shared bits */
-  '.pg-head { background: ' + d.headerBg + '; color: ' + d.headerText + '; font-family: ' + d.headerFont + '; border-radius: ' + d.radius + 'px; padding: 3mm 5mm; margin-bottom: 4mm; }' +
+  '.pg-head { background: ' + d.headerBg + '; color: ' + d.headerText + '; font-family: ' + d.headerFont + '; border-radius: ' + (d.radius + 8) + 'px; padding: 3mm 5mm; margin-bottom: 4mm; }' +
   '.pg-head .ph-title { font-size: 17pt; font-weight: bold; }' +
   '.pg-head .ph-how { font-size: 10.5pt; opacity: .92; font-family: ' + d.cellFont + '; margin-top: 1mm; }' +
   '.pg-foot { display: flex; justify-content: space-between; font-size: 8pt; opacity: .7; margin-top: 4mm; }' +
@@ -159,7 +159,33 @@ function bookCss(design, opts) {
      designed background, patterned bands, hero cluster,
      framed title plate, badges, what's-inside card and a
      decorative tile row. No live strip preview. */
-  '.bk-cover { text-align: center; height: ' + coverH + '; box-sizing: border-box; overflow: hidden; padding: 0 7mm; background: ' + d.coverBg + '; color: ' + d.coverText + '; }' +
+  '.bk-cover { position: relative; text-align: center; height: ' + coverH + '; box-sizing: border-box; overflow: hidden; padding: 0 7mm; background: ' + d.coverBg + '; color: ' + d.coverText + '; }' +
+  /* master cover template (v2): series pill · corner level
+     badge · big title · subtitle · belongs-to ribbon · ONE
+     hero illustration stage · compact what's-inside · tiles
+     · brand footband — same skeleton for every design */
+  '.cov-level-badge { position: absolute; top: 11mm; right: 5mm; background: ' + d.headerBg + '; color: ' + d.headerText + '; border-radius: ' + d.radius + 'px; padding: 2.2mm 3.5mm; text-align: center; line-height: 1.3; }' +
+  '.cov-level-badge .clb-name { display: block; font-family: ' + d.headerFont + '; font-size: 10pt; font-weight: bold; }' +
+  '.cov-level-badge .clb-ages { display: block; font-size: 8pt; letter-spacing: 2px; }' +
+  '.cov-series { margin-top: 1mm; }' +
+  '.bk-cover h1.cov-title { font-family: ' + d.headerFont + '; font-size: 34pt; margin: 4mm 0 1.5mm; color: ' + d.headerBg + '; line-height: 1.12; }' +
+  '.cov-patterns { font-size: 11pt; color: ' + d.cellText + '; }' +
+  '.cov-subtitle { font-size: 13pt; letter-spacing: 1.5px; margin-top: 2mm; color: ' + d.cellText + '; }' +
+  '.cov-badges { margin-top: 3.5mm; }' +
+  '.cov-belongs { display: inline-block; margin-top: 5mm; background: ' + d.accent + '; color: #ffffff; font-size: 12.5pt; padding: 2.6mm 7mm; border-radius: 999px; }' +
+  '.cov-belongs b { text-decoration: underline; }' +
+  '.cov-hero-stage { margin-top: 6mm; border-radius: ' + (d.radius + 6) + 'px; background: ' + (d.heroBg || 'transparent') + '; padding: 7mm 4mm 5mm; display: flex; align-items: flex-end; justify-content: center; gap: 6mm; min-height: 58mm; box-sizing: border-box; }' +
+  '.cov-hero-main { font-size: 64pt; line-height: 1.1; }' +
+  '.cov-hero-side { font-size: 40pt; line-height: 1.1; }' +
+  '.cov-prodline { font-size: 8.5pt; letter-spacing: 2px; opacity: .85; margin-top: 1.5mm; }' +
+  /* back-cover staircase: the 8 levels as rising steps */
+  '.back-stairs { display: flex; align-items: flex-end; justify-content: center; gap: 2mm; margin-top: 2mm; }' +
+  '.lvl-pill.stair { border-radius: 2.5mm 2.5mm 0 0; width: 15.5mm; display: flex; align-items: flex-end; justify-content: center; padding: 0 0 1.2mm; font-size: 8.5pt; box-sizing: border-box; }' +
+  '.back-cert-note { font-size: 11pt; margin-top: 5mm; color: ' + d.headerBg + '; font-weight: bold; }' +
+  /* interior polish: page number in a decorative circle */
+  '.pg-num { text-align: center; margin-top: 3mm; }' +
+  '.pg-num span { display: inline-block; width: 8mm; height: 8mm; line-height: 8mm; text-align: center; border: 1.8px solid ' + d.accent + '; border-radius: 50%; background: ' + d.cardBg + '; color: ' + d.headerBg + '; font-size: 9.5pt; }' +
+  '.ph-corner { float: right; font-size: 15pt; line-height: 1; margin-left: 3mm; }' +
   '.cov-band { height: 7mm; margin: 0 -7mm; background: ' + d.bandBg + '; }' +
   '.cov-band-top { margin-bottom: 6mm; }' +
   '.cov-band-bottom { margin-top: 6mm; }' +
@@ -175,13 +201,13 @@ function bookCss(design, opts) {
   '.cov-level { font-family: ' + d.headerFont + '; font-size: 14pt; color: ' + d.cellText + '; }' +
   '.cov-for { font-size: 13.5pt; margin-top: 3.5mm; color: ' + d.cellText + '; }' +
   '.cov-dec-row { margin-top: 6mm; }' +
-  '.cov-inside { background: ' + d.cardBg + '; border: 2.2px solid ' + d.cellBorder + '; border-radius: ' + d.radius + 'px; padding: 5mm 6mm 4mm; margin-top: 6mm; text-align: left; }' +
-  '.cov-inside h3 { font-family: ' + d.headerFont + '; color: ' + d.headerBg + '; font-size: 14.5pt; text-align: center; margin: 0 0 3mm; }' +
+  '.cov-inside { background: ' + d.cardBg + '; border: 2.2px solid ' + d.cellBorder + '; border-radius: ' + d.radius + 'px; padding: 4mm 5mm 3mm; margin-top: 5mm; text-align: left; }' +
+  '.cov-inside h3 { font-family: ' + d.headerFont + '; color: ' + d.headerBg + '; font-size: 13pt; text-align: center; margin: 0 0 2.5mm; }' +
   '.cov-inside ul { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 8mm; }' +
-  '.cov-inside li { font-size: 11.5pt; line-height: 1.45; margin-bottom: 2mm; break-inside: avoid; color: ' + d.cellText + '; }' +
-  '.cov-tiles { display: flex; gap: 3mm; justify-content: center; margin-top: 6mm; }' +
-  '.cov-tile { background: ' + d.cardBg + '; border: 2px solid ' + d.cellBorder + '; border-radius: ' + d.radius + 'px; width: 17mm; height: 17mm; font-size: 20pt; line-height: 17mm; text-align: center; }' +
-  '.cov-footband { margin-top: 6mm; background: ' + d.headerBg + '; color: ' + d.headerText + '; font-size: 11pt; padding: 3.4mm 5mm; border-radius: ' + d.radius + 'px; line-height: 1.5; }' +
+  '.cov-inside li { font-size: 10.5pt; line-height: 1.4; margin-bottom: 1.6mm; break-inside: avoid; color: ' + d.cellText + '; }' +
+  '.cov-tiles { display: flex; gap: 3mm; justify-content: center; margin-top: 4.5mm; }' +
+  '.cov-tile { background: ' + d.cardBg + '; border: 2px solid ' + d.cellBorder + '; border-radius: ' + d.radius + 'px; width: 14.5mm; height: 14.5mm; font-size: 17pt; line-height: 14.5mm; text-align: center; }' +
+  '.cov-footband { margin-top: 4.5mm; background: ' + d.headerBg + '; color: ' + d.headerText + '; font-size: 11pt; padding: 3.4mm 5mm; border-radius: ' + d.radius + 'px; line-height: 1.5; }' +
   '.cov-footband .cov-bizline { font-size: 9.5pt; letter-spacing: 2px; opacity: .9; }' +
   '.cov-frame { border: 3px ' + d.borderStyle + ' ' + d.accent + '; border-radius: ' + d.radius + 'px; padding: 10mm 8mm; background: ' + d.cardBg + '; }' +
   '.cov-motif { font-size: 44pt; margin-bottom: 3mm; }' +
@@ -207,17 +233,16 @@ function bookCss(design, opts) {
   '.st-sentence { font-size: 14.5pt; line-height: 1.35; }' +
   '.st-pics { display: flex; gap: 4mm; margin-top: 3mm; }' +
   '.pic-box { flex: 1; border: 1.8px solid ' + d.cellBorder + '; border-radius: ' + d.radius + 'px; background: ' + d.cellBg + '; text-align: center; padding: 2mm 1mm 1.5mm; }' +
-  '.pic-box .pic { font-size: 25pt; line-height: 1.25; }' +
+  '.pic-box .pic { font-size: 27pt; line-height: 1.25; }' +
   /* the buyer's own uploaded pictures: same box as the
      emoji, fitted whole on white, never cropped */
   '.pic-img { object-fit: contain; background: #ffffff; vertical-align: middle; }' +
-  '.pic img.pic-img { height: 12mm; max-width: 95%; }' +
+  '.pic img.pic-img { height: 14mm; max-width: 95%; }' +
   '.builder-pic .pic img.pic-img { height: 20mm; }' +
   '.seq-pic .pic img.pic-img { height: 20mm; }' +
   '.comp-scene img.pic-img { height: 15mm; }' +
-  '.cov-tile img.pic-img { height: 11mm; }' +
+  '.cov-tile img.pic-img { height: 9.5mm; }' +
   '.cov-cluster img.pic-img { height: 9mm; }' +
-  '.pic-label { font-size: 8pt; opacity: .65; margin-top: 1mm; }' +
   '.st-choices { display: flex; gap: 4mm; margin-top: 3mm; }' +
   '.st-choice { flex: 1; border: 1.8px solid ' + d.cellBorder + '; border-radius: 999px; background: ' + d.cellAlt + '; text-align: center; font-size: 13pt; padding: 1.6mm 2mm; }' +
   '.st-write { border-bottom: 1.4px dotted ' + d.cellBorder + '; height: 8mm; margin-top: 3mm; }' +
@@ -271,16 +296,16 @@ function bookCss(design, opts) {
   '.bk-back { text-align: center; height: ' + coverH + '; box-sizing: border-box; overflow: hidden; padding: 0 7mm; background: ' + d.coverBg + '; color: ' + d.coverText + '; }' +
   '.back-card { background: ' + d.cardBg + '; border: 3px solid ' + d.accent + '; border-radius: ' + d.radius + 'px; padding: 7mm 7mm 6mm; color: ' + d.cellText + '; }' +
   '.bk-back h2 { font-family: ' + d.headerFont + '; color: ' + d.headerBg + '; font-size: 20pt; margin: 0 0 4mm; }' +
-  '.bk-back h3 { font-family: ' + d.headerFont + '; color: ' + d.headerBg + '; font-size: 13pt; margin: 6mm 0 2.5mm; }' +
-  '.back-list { display: inline-block; text-align: left; font-size: 11.5pt; line-height: 1.9; margin: 0; padding: 0; list-style: none; }' +
+  '.bk-back h3 { font-family: ' + d.headerFont + '; color: ' + d.headerBg + '; font-size: 13pt; margin: 4.5mm 0 2.5mm; }' +
+  '.back-list { display: inline-block; text-align: left; font-size: 11.5pt; line-height: 1.5; margin: 0; padding: 0; list-style: none; }' +
   '.back-how { font-size: 11.5pt; line-height: 1.65; margin: 0; }' +
   '.back-series { display: flex; flex-wrap: wrap; gap: 2.2mm; justify-content: center; margin-top: 1mm; }' +
   '.lvl-pill { border: 2px solid ' + d.headerBg + '; color: ' + d.headerBg + '; background: ' + d.cellBg + '; border-radius: 999px; padding: 1.2mm 3.5mm; font-size: 9pt; }' +
   '.lvl-pill.cur { background: ' + d.headerBg + '; color: ' + d.headerText + '; font-weight: bold; }' +
-  '.back-thanks { margin-top: 7mm; font-size: 14.5pt; font-family: ' + d.headerFont + '; color: ' + d.headerBg + '; }' +
+  '.back-thanks { margin-top: 5mm; font-size: 14.5pt; font-family: ' + d.headerFont + '; color: ' + d.headerBg + '; }' +
   '.back-biz { margin-top: 1.5mm; font-size: 10pt; letter-spacing: 1px; }' +
-  '.back-copy { margin-top: 6mm; font-size: 8.5pt; line-height: 1.55; opacity: .75; }' +
-  '.bk-barcode { margin-top: 6mm; }' +
+  '.back-copy { margin-top: 4.5mm; font-size: 8.5pt; line-height: 1.55; opacity: .75; }' +
+  '.bk-barcode { margin-top: 4.5mm; }' +
   '.bk-barcode .bars { display: flex; justify-content: center; align-items: stretch; height: 12mm; }' +
   '.bk-barcode .bar { background: #1a1a1a; margin-right: 0.55mm; }' +
   '.bk-barcode .bc-label { font-size: 8.5pt; letter-spacing: 2.5px; margin-top: 1.6mm; }' +
@@ -294,13 +319,15 @@ function footHtml(data, opts) {
     esc(data.id) + ' · ' + esc(data.levelName) + '</span></div>';
 }
 function headHtml(section, data, opts) {
-  return '<div class="pg-head"><div class="ph-title">' + esc(section.activity.name) + '</div>' +
+  var corner = (opts && opts.design && opts.design.corner)
+    ? '<span class="ph-corner">' + esc(opts.design.corner) + '</span>' : '';
+  return '<div class="pg-head">' + corner + '<div class="ph-title">' + esc(section.activity.name) + '</div>' +
     '<div class="ph-how">' + esc(section.activity.how || '') + '</div></div>';
 }
 
 function circleItemHtml(it, n) {
   var pics = it.options.map(function (o) {
-    return '<div class="pic-box"><div class="pic">' + picHtml(o.e) + '</div><div class="pic-label">circle me</div></div>';
+    return '<div class="pic-box"><div class="pic">' + picHtml(o.e) + '</div></div>';
   }).join('');
   return '<div class="strip"><div class="st-top"><span class="st-n">' + n + '.</span>' +
     '<span class="st-sentence">' + esc(it.sentence) + '</span></div>' +
@@ -398,30 +425,41 @@ function insideListItems(data) {
   }).join('');
 }
 
+/* The master cover template (v2) — ONE skeleton for all
+   6 designs × 8 levels; only palette, pattern and hero art
+   change: patterned band · corner LEVEL badge + AGES 4-7 ·
+   series pill · big title (largest element) · patterns
+   line · subtitle · decodable badges · belongs-to ribbon ·
+   ONE hero illustration stage · what's-inside card ·
+   decorative tiles · brand footband. */
 function coverPage(data, opts, design) {
   var deco = decoFor(data, opts, design);
-  var cluster = deco.cluster.map(function (e) { return picHtml(e); }).join(' ');
   var tiles = deco.tiles.map(function (e) {
     return '<span class="cov-tile">' + picHtml(e) + '</span>';
   }).join('');
+  var hero = (design.hero && design.hero.length ? design.hero : [design.motif || '📚']);
+  var heroHtml = hero.map(function (e, i) {
+    return '<span class="' + (i === 0 ? 'cov-hero-main' : 'cov-hero-side') + '">' + esc(e) + '</span>';
+  }).join('');
   return '<div class="bk-page bk-cover">' +
     '<div class="cov-band cov-band-top"></div>' +
-    '<div class="cov-pills"><span class="cov-pill">★ PHONICSSTRIP STUDIO PRO ★</span>' +
-    '<span class="cov-pill alt">' + esc(data.levelName) + '</span></div>' +
-    '<div class="cov-hero">' + esc(design.motif || '📚') + '</div>' +
-    (cluster ? '<div class="cov-cluster">' + cluster + '</div>' : '') +
-    '<div class="cov-plate"><div class="cov-plate-in">' +
-    '<h1>' + esc(data.title) + '</h1>' +
-    '<div class="cov-level">' + esc(data.patterns) + '</div>' +
-    (data.childName ? '<div class="cov-for">For ' + esc(data.childName) + '</div>' : '') +
-    '</div></div>' +
-    '<div class="cov-pills cov-dec-row"><span class="cov-pill dec">✓ 100% DECODABLE</span>' +
+    '<div class="cov-level-badge"><span class="clb-name">' + esc(data.levelName) + '</span>' +
+    '<span class="clb-ages">AGES 4–7</span></div>' +
+    '<div class="cov-series"><span class="cov-pill">EARLY READER SERIES</span></div>' +
+    '<h1 class="cov-title">' + esc(data.title) + '</h1>' +
+    '<div class="cov-patterns">' + esc(data.patterns) + '</div>' +
+    '<div class="cov-subtitle">Phonics • Sounds • First Words</div>' +
+    '<div class="cov-pills cov-badges"><span class="cov-pill dec">✓ 100% DECODABLE</span>' +
     '<span class="cov-pill dec">✓ ANSWER KEYS INSIDE</span></div>' +
+    '<div><span class="cov-belongs">This book belongs to: <b>' +
+    (data.childName ? esc(data.childName) : '____________') + '</b></span></div>' +
+    '<div class="cov-hero-stage">' + heroHtml + '</div>' +
     '<div class="cov-inside"><h3>What’s inside</h3><ul>' + insideListItems(data) + '</ul></div>' +
     (tiles ? '<div class="cov-tiles">' + tiles + '</div>' : '') +
     '<div class="cov-footband">' + esc(design.tagline || 'Read · Circle · Grow') +
     ' — every sentence uses only this level’s sounds and focus words' +
-    '<div class="cov-bizline">' + esc(opts.business || 'Songlap Deals') + '</div></div>' +
+    '<div class="cov-bizline">' + esc(opts.business || 'Songlap Deals') + '</div>' +
+    '<div class="cov-prodline">★ PHONICSSTRIP STUDIO PRO ★</div></div>' +
     '<div class="cov-band cov-band-bottom"></div>' +
     '</div>';
 }
@@ -521,21 +559,29 @@ function backCoverPage(data, opts) {
     var icon = ACT_ICONS[s.activity.id] || '✓';
     return '<li>✓ ' + icon + ' ' + esc(s.activity.name) + ' — ' + s.items.length + (s.items.length === 1 ? ' activity' : ' activities') + '</li>';
   }).join('');
-  var series = LEVELS_SHORT.map(function (label, i) {
-    var cur = (i + 1) === data.level ? ' cur' : '';
-    return '<span class="lvl-pill' + cur + '">Level ' + (i + 1) + ' · ' + esc(label) + '</span>';
+  /* the 8 levels as a rising staircase, current step lit */
+  var stairs = LEVELS_SHORT.map(function (label, i) {
+    var cur = (i + 1) === data.level;
+    var h = (5 + i * 0.95).toFixed(1);
+    return '<span class="lvl-pill' + (cur ? ' cur' : '') + ' stair" style="height:' + h + 'mm" ' +
+      'title="Level ' + (i + 1) + ' · ' + esc(label) + '">L' + (i + 1) + '</span>';
   }).join('');
   return '<div class="bk-page bk-back">' +
     '<div class="cov-band cov-band-top"></div>' +
     '<div class="back-card">' +
-    '<h2>What’s inside this book</h2>' +
+    '<h2>A gentle first step into reading</h2>' +
+    '<p class="back-how"><b>For parents and teachers:</b> this book was written to be read <b>by</b> your child. ' +
+    'Every sentence uses only the sounds taught up to ' + esc(data.levelName) + ', so a beginner can sound out every word — ' +
+    'no guessing, no memorised word lists, just real reading from the very first page.</p>' +
+    '<h3>What’s inside this book</h3>' +
     '<ul class="back-list">' + list + '</ul>' +
     '<h3>Why it works</h3>' +
     '<p class="back-how">Every sentence is 100% decodable at ' + esc(data.levelName) + ': only this level’s sounds plus the Focus Words. ' +
     'The three pictures on each strip come from the same group, so young readers must read the words — not guess. ' +
     'Includes a progress tracker, a Super Reader certificate and full answer keys.</p>' +
     '<h3>Collect all 8 levels</h3>' +
-    '<div class="back-series">' + series + '</div>' +
+    '<div class="back-stairs">' + stairs + '</div>' +
+    '<div class="back-cert-note">★ Finish this book to earn the Super Reader Certificate inside!</div>' +
     '<div class="back-thanks">Happy reading!</div>' +
     '<div class="back-biz">' + esc(opts.business || 'Songlap Deals') + '</div>' +
     barcodeHtml(data) +
@@ -543,6 +589,9 @@ function backCoverPage(data, opts) {
     'The finished books made with this tool may be sold by the buyer; the tool itself must never be shared or resold. This credit line must stay on the book.' +
     (data.pack === 'illustrated'
       ? ' Picture artwork: Noto Emoji (Apache License 2.0, Google) · Twemoji (CC BY 4.0, Twitter) · Fluent Emoji (MIT, Microsoft).'
+      : '') +
+    (data.pack === 'storybook'
+      ? ' Storybook pictures are original illustrations created for PhonicsStrip Studio Pro; any fallback artwork: Noto Emoji (Apache License 2.0, Google) · Twemoji (CC BY 4.0, Twitter) · Fluent Emoji (MIT, Microsoft).'
       : '') + '</div>' +
     '</div>' +
     '<div class="cov-band cov-band-bottom"></div>' +
@@ -562,21 +611,34 @@ function buildBook(data, opts) {
   opts.trim = opts.trim || 'letter';
   var design = opts.design || {};
   var pages = [];
-  if (opts.cover !== false) pages.push(coverPage(data, opts, design));
-  pages.push(belongsToPage(data, opts, design));
-  pages.push(howToPage(data, opts));
-  pages.push(focusWordsPage(data, opts));
+  var numbered = [];
+  function push(html, num) { pages.push(html); numbered.push(!!num); }
+  if (opts.cover !== false) push(coverPage(data, opts, design), false);
+  push(belongsToPage(data, opts, design), true);
+  push(howToPage(data, opts), true);
+  push(focusWordsPage(data, opts), true);
   var sectionPageCounts = [];
   data.sections.forEach(function (s) {
     var sp = sectionPages(s, data, opts);
     sectionPageCounts.push({ name: s.activity.name, count: sp.length });
-    sp.forEach(function (p) { pages.push(p); });
+    sp.forEach(function (p) { push(p, true); });
   });
-  pages.push(trackerPage(data, sectionPageCounts, opts));
-  pages.push(certificatePage(data, opts, design));
-  answerKeyPages(data, opts).forEach(function (p) { pages.push(p); });
-  if (opts.backCover !== false) pages.push(backCoverPage(data, opts));
-  return { html: pages.join('\n'), pageCount: pages.length };
+  push(trackerPage(data, sectionPageCounts, opts), true);
+  push(certificatePage(data, opts, design), true);
+  answerKeyPages(data, opts).forEach(function (p) { push(p, true); });
+  if (opts.backCover !== false) push(backCoverPage(data, opts), false);
+  /* page numbers in a small decorative circle on every
+     interior page (covers stay clean). Every page string
+     ends with the page div's closing tag, so the badge is
+     inserted just inside it. */
+  var n = 0;
+  var out = pages.map(function (html, i) {
+    if (!numbered[i]) return html;
+    n++;
+    var badge = '<div class="pg-num"><span>' + n + '</span></div>';
+    return html.slice(0, html.length - '</div>'.length) + badge + '</div>';
+  });
+  return { html: out.join('\n'), pageCount: pages.length };
 }
 
 /* ---------- KDP wrap cover ---------- */
@@ -628,12 +690,22 @@ function wrapCoverCss(design, dims) {
   '.wrap .thanks { font-family: ' + d.headerFont + '; color: ' + d.headerBg + '; font-size: 14pt; margin-top: 0.22in; }' +
   '.wrap .barcode-box { background: #ffffff; width: 2in; height: 1.2in; margin: 0.3in auto 0; border: 1px solid #cccccc; display: flex; align-items: center; justify-content: center; font-size: 8.5pt; color: #666666; }' +
   '.wrap .biz { font-size: 10pt; letter-spacing: 1px; margin-top: 0.22in; }' +
+  '.wrap .hero { margin-top: 0.16in; }' +
+  '.wrap .stairs { display: flex; align-items: flex-end; justify-content: center; gap: 0.045in; margin-top: 0.16in; }' +
+  '.wrap .wstair { flex: 0 0 0.52in; display: flex; align-items: flex-end; justify-content: center; border: 2px solid ' + d.headerBg + '; color: ' + d.headerBg + '; background: ' + d.cellBg + '; border-radius: 4px 4px 0 0; font-size: 8pt; padding-bottom: 0.03in; box-sizing: border-box; }' +
+  '.wrap .wstair.cur { background: ' + d.headerBg + '; color: ' + d.headerText + '; font-weight: bold; }' +
+  '.wrap .stairs-cap { font-size: 9.5pt; margin-top: 0.08in; }' +
   '';
 }
 
-/* meta: { title, subtitle, author, levelLine, insideList: [strings], blurb }
+/* meta: { title, subtitle, author, levelLine, level (1-8,
+   optional — draws the back-cover staircase), insideList:
+   [strings], blurb }
    pack (optional): a picture-pack object — its deco set
-   replaces the design's cover decorations, as in the book. */
+   replaces the design's cover decorations, as in the book.
+   The wrap follows the same master template as the book
+   covers: series badge · level badge · motif + cluster ·
+   title plate · hero row · badges · tiles · brand. */
 function wrapCoverHtml(meta, design, dims, pack) {
   var deco = {
     cluster: (pack && pack.deco && pack.deco.cluster) || design.cluster || [],
@@ -642,23 +714,37 @@ function wrapCoverHtml(meta, design, dims, pack) {
   var inside = (meta.insideList || []).map(function (s) { return '<li>✓ ' + esc(s) + '</li>'; }).join('');
   var cluster = deco.cluster.map(function (e) { return esc(e); }).join(' ');
   var tiles = deco.tiles.map(function (e) { return '<span class="tile">' + esc(e) + '</span>'; }).join('');
+  var hero = (design.hero && design.hero.length ? design.hero : []);
+  var heroHtml = hero.map(function (e, i) {
+    return '<span style="font-size:' + (i === 0 ? '40pt' : '27pt') + '">' + esc(e) + '</span>';
+  }).join(' ');
+  var stairs = '';
+  if (meta.level >= 1 && meta.level <= 8) {
+    stairs = '<div class="stairs">' + LEVELS_SHORT.map(function (label, i) {
+      var h = (0.2 + i * 0.05).toFixed(2);
+      return '<span class="wstair' + ((i + 1) === meta.level ? ' cur' : '') + '" style="height:' + h + 'in">L' + (i + 1) + '</span>';
+    }).join('') + '</div><div class="stairs-cap">Collect all 8 levels — this is Level ' + meta.level + '</div>';
+  }
   return '<div class="wrap">' +
     '<div class="wrap-back"><div class="card"><h2 style="font-size:17pt">What’s inside this book</h2>' +
     '<ul class="inside">' + inside + '</ul>' +
     '<p class="blurb">' + esc(meta.blurb || '') + '</p>' +
+    stairs +
     '<div class="thanks">Happy reading!</div></div>' +
     '<div class="barcode-box">ISBN barcode area</div>' +
     '<div class="biz">' + esc(meta.author || '') + '</div></div>' +
     '<div class="wrap-spine"><span>' + esc(meta.title) + ' · ' + esc(meta.author || '') + '</span></div>' +
-    '<div class="wrap-front"><span class="badge">★ PHONICSSTRIP STUDIO PRO ★</span>' +
+    '<div class="wrap-front"><span class="badge">EARLY READER SERIES</span>' +
     '<span class="badge alt">' + esc(meta.levelLine || '') + '</span>' +
     '<div class="motif">' + esc(design.motif || '📚') + '</div>' +
     (cluster ? '<div class="cluster">' + cluster + '</div>' : '') +
     '<div class="plate"><div class="plate-in">' +
     '<h1>' + esc(meta.title) + '</h1>' +
-    (meta.subtitle ? '<h2>' + esc(meta.subtitle) + '</h2>' : '') +
+    '<h2>' + esc(meta.subtitle || 'Phonics • Sounds • First Words') + '</h2>' +
     '</div></div>' +
-    '<div style="margin-top:0.2in"><span class="badge dec">✓ 100% DECODABLE</span></div>' +
+    (heroHtml ? '<div class="hero">' + heroHtml + '</div>' : '') +
+    '<div style="margin-top:0.18in"><span class="badge dec">✓ 100% DECODABLE</span> ' +
+    '<span class="badge dec">✓ ANSWER KEYS INSIDE</span></div>' +
     (tiles ? '<div class="tiles">' + tiles + '</div>' : '') +
     '<div class="biz">' + esc(meta.author || '') + '</div></div>' +
     '</div>';
