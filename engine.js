@@ -103,11 +103,10 @@ function normalizeSentenceKey(sentence) {
    artwork pack: under the Storybook pack, our own storybook
    illustration (assets/storybook/<word>.png, when the word
    has one) comes first, then the Illustrated library
-   variants as fallbacks / rotation partners; under the
-   Illustrated pack, just the library variants. Rotation
-   (variantSel) indexes into this list, so a storybook word
-   alternates between its storybook picture and its SVG art
-   from book to book. */
+   variants as fallbacks; under the Illustrated pack, just
+   the library variants. Rotation (variantSel) indexes into
+   this list when the selection carries no book-level art
+   source (see picFor). */
 function picCandidates(C, pack, noun) {
   var out = [];
   if (!noun || !pack) return out;
@@ -125,10 +124,35 @@ function picFor(C, packId, noun, customPics, variantSel) {
   if (customPics && customPics[noun.w]) return customPics[noun.w];
   var pack = (C && C.phsPicturePackById && packId) ? C.phsPicturePackById(packId) : null;
   if (pack && (pack.illustrated || pack.storybook)) {
-    var cands = picCandidates(C, pack, noun);
-    if (cands.length) {
-      var idx = variantSel && variantSel[noun.w] != null ? variantSel[noun.w] : 0;
-      return cands[((idx % cands.length) + cands.length) % cands.length];
+    var idx = variantSel && variantSel[noun.w] != null ? variantSel[noun.w] : 0;
+    /* Book-level art source (Storybook pack): when the
+       selection carries __src ('storybook' or 'svg'), EVERY
+       word in the book uses that one source — the watercolour
+       storybook art throughout, or the illustrated SVG art
+       throughout — so a single book never mixes the two
+       styles on a page. Consecutive books alternate __src
+       (the app flips it per build), which keeps the owner's
+       book-to-book rotation without word-by-word mixing.
+       The per-word index still rotates the SVG variant. */
+    var src = pack.storybook && variantSel ? variantSel.__src : null;
+    if (src === 'storybook' || src === 'svg') {
+      var lib = (C.PHS_PIC_LIB && C.PHS_PIC_LIB[noun.w]) || [];
+      if (src === 'storybook' && C.PHS_STORYBOOK && C.PHS_STORYBOOK[noun.w]) {
+        return 'assets/storybook/' + noun.w + '.png';
+      }
+      if (lib.length) {
+        return lib[((idx % lib.length) + lib.length) % lib.length].src;
+      }
+      if (C.PHS_STORYBOOK && C.PHS_STORYBOOK[noun.w]) {
+        return 'assets/storybook/' + noun.w + '.png';
+      }
+      /* no artwork at all for this word: fall through to
+         the pack's emoji variant / the bank emoji */
+    } else {
+      var cands = picCandidates(C, pack, noun);
+      if (cands.length) {
+        return cands[((idx % cands.length) + cands.length) % cands.length];
+      }
     }
   }
   if (pack && pack.variants && pack.variants[noun.w]) return pack.variants[noun.w];
@@ -143,12 +167,12 @@ function picFor(C, packId, noun, customPics, variantSel) {
    variant each word lands on. Words with one variant keep
    index 0. Pure and deterministic.
    `extra` (optional, { word: count }) widens a word's
-   candidate count — the app passes 1 for every word that
-   has a Storybook picture when the Storybook pack is
-   active, so storybook words rotate through their storybook
-   illustration AND their SVG variants. Indexes stay valid
-   for narrower packs because picFor indexes modulo the
-   candidate count. */
+   candidate count for callers that index into the combined
+   candidate list. The app no longer passes it: under the
+   Storybook pack the art source alternates at BOOK level
+   (variantSel.__src, see picFor), so these indexes count
+   SVG variants only. Indexes stay valid for narrower packs
+   because picFor indexes modulo the candidate count. */
 function nextVariantSelection(C, levelId, prev, salt, extra) {
   var lib = C.PHS_PIC_LIB || {};
   var sel = {};
@@ -824,14 +848,24 @@ function buildBookData(cfg, C) {
 
   /* sequence step pictures + cover decorations: a picture
      that is one word's unambiguous bank emoji takes that
-     word's Illustrated artwork (under the Illustrated pack,
-     at the rotated variant) — and the buyer's own uploaded
-     picture still wins over the artwork */
+     word's artwork in the book's one art source (under an
+     artwork pack, at the rotated variant) — and the buyer's
+     own uploaded picture still wins over the artwork. An
+     emoji shared by 2+ bank words (🐶 = dog/pup) resolves
+     through the step's own sentence, which names the word
+     the step depicts. Glyphs that depict no bank word
+     (actions, states, the reader character) stay emoji in
+     every pack — they are scene dressing, not word art. */
   var decoMap = {};
-  if (pack && (pack.illustrated || pack.storybook) && C.PHS_PIC_LIB) {
+  var nounsByEmoji = {};
+  var artworkPack = pack && (pack.illustrated || pack.storybook) && C.PHS_PIC_LIB;
+  if (artworkPack) {
     var emojiCount = {};
     var allNouns = C.phsCumulative(8).nouns;
-    allNouns.forEach(function (n) { emojiCount[n.e] = (emojiCount[n.e] || 0) + 1; });
+    allNouns.forEach(function (n) {
+      emojiCount[n.e] = (emojiCount[n.e] || 0) + 1;
+      (nounsByEmoji[n.e] = nounsByEmoji[n.e] || []).push(n);
+    });
     allNouns.forEach(function (n) {
       if (emojiCount[n.e] !== 1) return;
       var resolved = picFor(C, pack.id, n, null, ctx.picVariants);
@@ -840,12 +874,22 @@ function buildBookData(cfg, C) {
   }
   var cdm = customDecoMap(C, customPics);
   Object.keys(cdm).forEach(function (k) { decoMap[k] = cdm[k]; });
-  if (Object.keys(decoMap).length) {
+  if (Object.keys(decoMap).length || artworkPack) {
     sections.forEach(function (s) {
       s.items.forEach(function (it) {
         if (it.type !== 'seq') return;
         function swap(st) {
-          return decoMap[st.pic] ? { pic: decoMap[st.pic], s: st.s } : st;
+          if (decoMap[st.pic]) return { pic: decoMap[st.pic], s: st.s };
+          var cands = nounsByEmoji[st.pic];
+          if (artworkPack && cands && cands.length > 1) {
+            var words = sentenceWords(st.s);
+            var named = cands.filter(function (n) { return words.indexOf(n.w) > -1; });
+            if (named.length === 1) {
+              var r = picFor(C, pack.id, named[0], null, ctx.picVariants);
+              if (r && r.indexOf('assets/') === 0) return { pic: r, s: st.s };
+            }
+          }
+          return st;
         }
         it.printed = it.printed.map(swap);
         it.correctOrder = it.correctOrder.map(swap);
