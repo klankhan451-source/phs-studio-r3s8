@@ -55,7 +55,7 @@
   <main class="wrap">
 
     <div id="restore-bar" class="restore-bar" hidden>
-      <span id="restore-msg">Welcome back — your last book was restored exactly as you left it.</span>
+      <span id="restore-msg">Welcome back — your last book was restored and rebuilt, ready to print.</span>
       <button id="start-fresh-btn" class="btn btn-ghost btn-small" type="button">Start fresh</button>
     </div>
 
@@ -393,8 +393,8 @@
   </div>
 </div>
 
-<!-- same-tab print root: filled only while printing -->
-<div id="print-root"></div>
+<!-- printing happens in a throwaway hidden iframe built by
+     app.js — the main document never enters a print state -->
 
 <!-- progress modal -->
 <div id="progress-modal" class="pm-backdrop" hidden>
