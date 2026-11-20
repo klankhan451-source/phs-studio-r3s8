@@ -54,7 +54,7 @@ if (typeof module !== 'undefined' && module.exports) {
   /* In the browser these come from the script tags; in Node
      (unit tests) they are required directly. */
   var C = typeof PHS_LEVELS !== 'undefined'
-    ? { PHS_LEVELS: PHS_LEVELS, PHS_SEQUENCES: PHS_SEQUENCES, PHS_ACTIVITIES: PHS_ACTIVITIES, phsLevelById: phsLevelById, phsActivityById: phsActivityById, phsCumulative: phsCumulative, PHS_PICTURE_PACKS: PHS_PICTURE_PACKS, phsPicturePackById: phsPicturePackById, PHS_PIC_LIB: typeof PHS_PIC_LIB !== 'undefined' ? PHS_PIC_LIB : {}, PHS_STORYBOOK: typeof PHS_STORYBOOK !== 'undefined' ? PHS_STORYBOOK : {} }
+    ? { PHS_LEVELS: PHS_LEVELS, PHS_SEQUENCES: PHS_SEQUENCES, PHS_ACTIVITIES: PHS_ACTIVITIES, phsLevelById: phsLevelById, phsActivityById: phsActivityById, phsCumulative: phsCumulative, PHS_PICTURE_PACKS: PHS_PICTURE_PACKS, phsPicturePackById: phsPicturePackById, PHS_PIC_LIB: typeof PHS_PIC_LIB !== 'undefined' ? PHS_PIC_LIB : {}, PHS_STORYBOOK: typeof PHS_STORYBOOK !== 'undefined' ? PHS_STORYBOOK : {}, PHS_EMOTION_ADJS: PHS_EMOTION_ADJS, PHS_MASS_NOUNS: PHS_MASS_NOUNS, PHS_PLURAL_NOUNS: PHS_PLURAL_NOUNS, PHS_VERB_FRAMES: PHS_VERB_FRAMES, phsNounClass: phsNounClass, phsIsAnimateClass: phsIsAnimateClass, PHS_LEVEL_BLURBS: PHS_LEVEL_BLURBS, phsLevelBlurb: phsLevelBlurb }
     : require('./content.js');
   var D = typeof PHS_DESIGNS !== 'undefined' ? { PHS_DESIGNS: PHS_DESIGNS, phsDesignById: phsDesignById } : require('./designs.js');
   var E = typeof PhonicsEngine !== 'undefined' ? PhonicsEngine : require('./engine.js');
@@ -1557,14 +1557,18 @@ if (typeof module !== 'undefined' && module.exports) {
     ctx.textAlign = 'center';
     ctx.fillStyle = d.headerBg;
     ctx.font = 'bold 74px ' + d.headerFont;
-    wrapLines(ctx, 'A gentle first step into reading', W - 360).forEach(function (ln, i) {
+    /* per-level back-cover words (the built book's blurb) —
+       no beginner wording on advanced books */
+    var blurb = draft.blurb || { head: 'A gentle first step into reading', body: '' };
+    wrapLines(ctx, blurb.head, W - 360).forEach(function (ln, i) {
       ctx.fillText(ln, W / 2, 250 + i * 86);
     });
     ctx.font = '42px ' + d.cellFont;
     ctx.fillStyle = d.cellText;
     var y = 470;
-    wrapLines(ctx, 'Every sentence uses only the sounds taught up to ' + draft.levelName +
-      ', so a beginner can sound out every word — no guessing, just real reading.', W - 380)
+    var blurbText = String(blurb.body || '').replace(/<[^>]+>/g, '');
+    blurbText = blurbText.charAt(0).toUpperCase() + blurbText.slice(1);
+    wrapLines(ctx, blurbText, W - 380)
       .forEach(function (ln) { ctx.fillText(ln, W / 2, y); y += 56; });
     y += 30;
     ctx.font = 'bold 50px ' + d.headerFont;
