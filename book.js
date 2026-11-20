@@ -274,11 +274,17 @@ function bookCss(design, opts) {
   /* read & draw */
   '.draw-frame { border: 2.2px solid ' + d.cellBorder + '; border-radius: ' + d.radius + 'px; background: #ffffff; height: 74mm; margin-top: 3mm; }' +
   '.draw-item { margin-bottom: 5mm; }' +
-  /* trace */
+  /* trace — the traced sentence sits on an opaque strip:
+     the ruled line's dashed midline used to show through
+     every word space (and before the first letter), so
+     "Nan can tap the cap." read as "Nan-can-tap-the-cap."
+     with a leading dash. The mask makes the spaces real
+     spaces; the midline still guides the empty write line
+     below and the line after the sentence ends. */
   '.tr-item { margin-bottom: 6mm; }' +
   '.tr-ruled { position: relative; height: 15mm; border-top: 1.4px solid #8bb8d8; border-bottom: 1.4px solid #d88a8a; margin-top: 2.5mm; }' +
   '.tr-ruled::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1.4px dashed #b9c8d4; }' +
-  '.tr-text { font-size: 20pt; line-height: 15mm; color: #c4c4c4; letter-spacing: .5px; padding-left: 2mm; white-space: nowrap; overflow: hidden; }' +
+  '.tr-text { position: relative; z-index: 1; display: inline-block; background: #ffffff; font-size: 20pt; line-height: 15mm; color: #c4c4c4; letter-spacing: .5px; padding-left: 2mm; padding-right: 2mm; white-space: nowrap; overflow: hidden; }' +
   '.tr-label { font-size: 10pt; opacity: .7; }' +
   /* comprehension */
   '.comp-scene { text-align: center; font-size: 40pt; letter-spacing: 6px; margin: 2mm 0 4mm; }' +
@@ -679,13 +685,20 @@ function backCoverPage(data, opts) {
     return '<span class="lvl-pill' + (cur ? ' cur' : '') + ' stair" style="height:' + h + 'mm" ' +
       'title="Level ' + (i + 1) + ' · ' + esc(label) + '">L' + (i + 1) + '</span>';
   }).join('');
+  /* per-level headline + paragraph (content.js blurbs):
+     the words match the skill this level teaches — no
+     "beginner / first step" wording on advanced books.
+     The blurb body is trusted series copy (it carries
+     <b> markup), so it is inserted unescaped. */
+  var blurb = data.blurb || {
+    head: 'A gentle first step into reading',
+    body: 'this book was written to be read <b>by</b> your child. Every sentence uses only the sounds taught up to this level, so a beginner can sound out every word.'
+  };
   return '<div class="bk-page bk-back">' +
     '<div class="cov-band cov-band-top"></div>' +
     '<div class="back-card">' +
-    '<h2>A gentle first step into reading</h2>' +
-    '<p class="back-how"><b>For parents and teachers:</b> this book was written to be read <b>by</b> your child. ' +
-    'Every sentence uses only the sounds taught up to ' + esc(data.levelName) + ', so a beginner can sound out every word — ' +
-    'no guessing, no memorised word lists, just real reading from the very first page.</p>' +
+    '<h2>' + esc(blurb.head) + '</h2>' +
+    '<p class="back-how"><b>For parents and teachers:</b> ' + blurb.body + '</p>' +
     '<h3>What’s inside this book</h3>' +
     '<ul class="back-list">' + list + '</ul>' +
     '<h3>Why it works</h3>' +
@@ -943,9 +956,10 @@ function listingKitFor(data, facts) {
     totalItems + ' Phonics Reading Strips with Answer Keys (Ages 4–7)';
   var kdpSubtitle = data.patterns + ' · 100% decodable sentences, near-miss picture choices, ' +
     'progress tracker and Super Reader certificate · ' + pageCount + ' pages · ' + trimLabel;
+  var blurbHead = (data.blurb && data.blurb.head) || 'A gentle first step into reading';
   var kdpDescription =
-    'A gentle first step into real reading. Every sentence in ' + data.title + ' is 100% decodable at ' +
-    data.levelName + ' (' + data.patterns + '), using only this level’s sounds plus its Focus Words — so a beginner ' +
+    blurbHead + '. Every sentence in ' + data.title + ' is 100% decodable at ' +
+    data.levelName + ' (' + data.patterns + '), using only this level’s sounds plus its Focus Words — so a child ' +
     'can sound out every word, with no guessing and no memorised word lists.\n\n' +
     'What’s inside (' + pageCount + ' pages):\n' + actList + '\n' +
     'Plus a “This book belongs to” page, a how-to page for parents and teachers, the Focus Words page, ' +
