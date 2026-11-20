@@ -416,8 +416,9 @@ img, svg { max-width: 100%; }
 .help ul { margin-left: 20px; }
 .help li { font-size: 14px; line-height: 1.65; margin-bottom: 6px; }
 
-/* ---------- mobile action bar ---------- */
+/* ---------- mobile action bars ---------- */
 .mobile-actions { display: none; }
+.build-mobile-actions { display: none; }
 
 /* ---------- progress modal ---------- */
 .pm-backdrop {
@@ -470,6 +471,7 @@ img, svg { max-width: 100%; }
 /* phone */
 @media (max-width: 640px) {
   body { padding-bottom: 84px; }
+  body[data-tab="build"] { padding-bottom: 148px; }
   body[data-tab="book"] { padding-bottom: 148px; }
   .wrap { padding: 14px; }
   .header-inner { padding: 16px 14px; }
@@ -501,6 +503,15 @@ img, svg { max-width: 100%; }
   .tab-btn { flex-direction: column; gap: 2px; min-height: 54px; font-size: 12px; padding: 6px 4px; border-radius: 12px; }
   .tab-btn .tab-step { display: none; }
   .tab-btn svg { width: 21px; height: 21px; }
+  /* sticky Generate bar above the tab bar, Build tab only */
+  .build-mobile-actions {
+    position: fixed; left: 0; right: 0; z-index: 49;
+    bottom: calc(67px + env(safe-area-inset-bottom));
+    display: none; padding: 8px 12px;
+    background: rgba(247,245,239,.96); border-top: 1px solid var(--border);
+  }
+  body[data-tab="build"] .build-mobile-actions { display: block; }
+  .build-mobile-actions .btn { width: 100%; }
   /* sticky action bar above the tab bar, Book tab only */
   .mobile-actions {
     position: fixed; left: 0; right: 0; z-index: 49;
