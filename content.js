@@ -339,7 +339,7 @@ var PHS_SEQUENCES = [
 
 var PHS_ACTIVITIES = [
   { id: 'circle', name: 'Read & Circle', answers: true,
-    blurb: 'Read the sentence, circle the picture that matches. The 3 pictures are near-misses from the same group — children must really read.',
+    blurb: 'Read the sentence, circle the picture that matches. The 3 pictures are very similar and from the same group — children must really read.',
     how: 'Read the sentence aloud, then circle the one picture that matches it.' },
   { id: 'draw', name: 'Read & Draw', answers: false,
     blurb: 'Read the sentence and draw it in the frame.',
@@ -372,14 +372,14 @@ var PHS_ACTIVITIES = [
 var PHS_PICTURE_PACKS = [
   {
     id: 'storybook', name: 'Storybook (new)',
-    blurb: 'Our own warm watercolour storybook illustrations, drawn in one consistent style for this tool — full-body pictures on a cream page. One whole book uses this art throughout; the next book switches every picture to the Illustrated artwork, so consecutive books alternate but a single book never mixes the two styles.',
+    blurb: 'Our own warm storybook pictures, drawn in one style for this tool. Each new book swaps to a fresh set of pictures, so books in a series never look copy-pasted.',
     variants: {},
     deco: null,
     storybook: true
   },
   {
     id: 'illustrated', name: 'Illustrated',
-    blurb: 'Real illustrated artwork for every word — full-body pictures wherever they exist (Noto Emoji, Twemoji and Fluent Emoji artwork). Every new book rotates to a fresh variant, so a series never looks copy-pasted.',
+    blurb: 'Real illustrated artwork for every word (from the Noto Emoji, Twemoji and Fluent Emoji sets). Every new book picks a fresh picture for each word, so a series never looks copy-pasted.',
     variants: {},
     deco: null,
     illustrated: true
