@@ -159,13 +159,17 @@ if (typeof module !== 'undefined' && module.exports) {
      series never looks copy-pasted. Persisted on the device
      and inside each saved project. */
   var ROTATION_KEY = 'phonics_pic_rotation_v1';
-  var picRotation = { last: {}, nonce: 0 };
+  /* sbNext: the art source the NEXT Storybook-pack book will
+     use throughout ('storybook' watercolour or 'svg'
+     illustrated) — flipped after every Storybook build, so
+     consecutive books alternate but one book never mixes. */
+  var picRotation = { last: {}, nonce: 0, sbNext: 'storybook' };
   function loadPicRotation() {
     try {
       var raw = localStorage.getItem(ROTATION_KEY);
       if (raw) {
         var parsed = JSON.parse(raw);
-        if (parsed && parsed.last) picRotation = { last: parsed.last, nonce: parsed.nonce || 0 };
+        if (parsed && parsed.last) picRotation = { last: parsed.last, nonce: parsed.nonce || 0, sbNext: parsed.sbNext === 'svg' ? 'svg' : 'storybook' };
       }
     } catch (e) { /* private mode */ }
   }
@@ -488,16 +492,18 @@ if (typeof module !== 'undefined' && module.exports) {
     var seed = 'L' + s.level + '|' + s.title + '|' + s.childName + '|v' + seedVariant;
     /* rotate the pictures: this book uses a different
        picture than the last book for every word that has
-       more than one. Under the Storybook pack, words with
-       a storybook illustration get one extra candidate, so
-       they alternate between the storybook picture and
-       their illustrated artwork. */
-    var extra = null;
-    if (s.pack === 'storybook' && C.PHS_STORYBOOK) {
-      extra = {};
-      Object.keys(C.PHS_STORYBOOK).forEach(function (w) { extra[w] = 1; });
+       more than one. Under the Storybook pack the art
+       SOURCE alternates at book level — this whole book is
+       storybook watercolour, the next whole book is
+       illustrated SVG art — so a single book never mixes
+       the two styles; the per-word index still rotates
+       which SVG variant a word gets. */
+    var variantSel = E.nextVariantSelection(C, s.level, picRotation.last, picRotation.nonce);
+    if (s.pack === 'storybook') {
+      var sbMode = picRotation.sbNext === 'svg' ? 'svg' : 'storybook';
+      variantSel.__src = sbMode;
+      picRotation.sbNext = sbMode === 'storybook' ? 'svg' : 'storybook';
     }
-    var variantSel = E.nextVariantSelection(C, s.level, picRotation.last, picRotation.nonce, extra);
     draft = E.buildBookData({
       level: s.level, title: s.title, childName: s.childName, seed: seed,
       pack: s.pack,
@@ -948,7 +954,7 @@ if (typeof module !== 'undefined' && module.exports) {
       customWords: customWords.map(function (cw) {
         return { w: cw.w, img: cw.img, c: cw.c, level: cw.level };
       }),
-      picRotation: { last: Object.assign({}, picRotation.last), nonce: picRotation.nonce },
+      picRotation: { last: Object.assign({}, picRotation.last), nonce: picRotation.nonce, sbNext: picRotation.sbNext },
       seedVariant: seedVariant,
       draft: draft,
       designId: $('design-select').value,
@@ -969,7 +975,7 @@ if (typeof module !== 'undefined' && module.exports) {
     customPics = st.customPics || {};
     customWords = st.customWords || [];
     if (st.picRotation && st.picRotation.last) {
-      picRotation = { last: st.picRotation.last, nonce: st.picRotation.nonce || 0 };
+      picRotation = { last: st.picRotation.last, nonce: st.picRotation.nonce || 0, sbNext: st.picRotation.sbNext === 'svg' ? 'svg' : 'storybook' };
       savePicRotation();
     }
     populateWordSelect();
