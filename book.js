@@ -232,15 +232,15 @@ function bookCss(design, opts) {
   '.st-n { font-weight: bold; color: ' + d.accent + '; font-size: 13pt; }' +
   '.st-sentence { font-size: 14.5pt; line-height: 1.35; }' +
   '.st-pics { display: flex; gap: 4mm; margin-top: 3mm; }' +
-  '.pic-box { flex: 1; border: 1.8px solid ' + d.cellBorder + '; border-radius: ' + d.radius + 'px; background: ' + d.cellBg + '; text-align: center; padding: 2mm 1mm 1.5mm; }' +
-  '.pic-box .pic { font-size: 27pt; line-height: 1.25; }' +
+  '.pic-box { flex: 1; border: 1.8px solid ' + d.cellBorder + '; border-radius: ' + d.radius + 'px; background: ' + d.cellBg + '; text-align: center; padding: 1.5mm 1mm 1mm; }' +
+  '.pic-box .pic { font-size: 34pt; line-height: 1.25; }' +
   /* the buyer's own uploaded pictures: same box as the
      emoji, fitted whole on white, never cropped */
   '.pic-img { object-fit: contain; background: #ffffff; vertical-align: middle; }' +
-  '.pic img.pic-img { height: 14mm; max-width: 95%; }' +
-  '.builder-pic .pic img.pic-img { height: 20mm; }' +
-  '.seq-pic .pic img.pic-img { height: 20mm; }' +
-  '.comp-scene img.pic-img { height: 15mm; }' +
+  '.pic img.pic-img { height: 21mm; max-width: 95%; }' +
+  '.builder-pic .pic img.pic-img { height: 22mm; }' +
+  '.seq-pic .pic img.pic-img { height: 22mm; }' +
+  '.comp-scene img.pic-img { height: 18mm; }' +
   '.cov-tile img.pic-img { height: 9.5mm; }' +
   '.cov-cluster img.pic-img { height: 9mm; }' +
   '.st-choices { display: flex; gap: 4mm; margin-top: 3mm; }' +
@@ -249,7 +249,7 @@ function bookCss(design, opts) {
   '.builder-flex { display: flex; gap: 4mm; align-items: center; }' +
   '.builder-pic { width: 30mm; flex: none; }' +
   '.builder-pic .pic-box { height: 30mm; }' +
-  '.builder-pic .pic { font-size: 27pt; }' +
+  '.builder-pic .pic { font-size: 32pt; }' +
   '.builder-main { flex: 1; }' +
   /* read & draw */
   '.draw-frame { border: 2.2px solid ' + d.cellBorder + '; border-radius: ' + d.radius + 'px; background: #ffffff; height: 74mm; margin-top: 3mm; }' +
