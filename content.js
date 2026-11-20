@@ -372,7 +372,7 @@ var PHS_ACTIVITIES = [
 var PHS_PICTURE_PACKS = [
   {
     id: 'storybook', name: 'Storybook (new)',
-    blurb: 'Our own warm watercolour storybook illustrations, drawn in one consistent style for this tool — full-body pictures on a cream page. Words without a storybook picture yet use the Illustrated artwork, and every new book rotates the mix.',
+    blurb: 'Our own warm watercolour storybook illustrations, drawn in one consistent style for this tool — full-body pictures on a cream page. One whole book uses this art throughout; the next book switches every picture to the Illustrated artwork, so consecutive books alternate but a single book never mixes the two styles.',
     variants: {},
     deco: null,
     storybook: true
