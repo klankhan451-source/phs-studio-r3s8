@@ -355,8 +355,8 @@ img, svg { max-width: 100%; }
   background-size: 14px 14px;
 }
 .book-preview:empty { display: none; }
-.pv-viewport { overflow: auto; max-height: 80vh; }
-.pv-scale { transform-origin: top left; margin: 0 auto; }
+.pv-viewport { overflow: auto; max-height: 80vh; max-width: 100%; }
+.pv-scale { transform-origin: top left; margin: 0; }
 .book-preview .bk-page {
   background: #fff; box-shadow: 0 6px 22px rgba(38,51,47,.20);
   padding: 14px; margin: 0 auto 18px;
@@ -433,8 +433,10 @@ img, svg { max-width: 100%; }
 .pm-track { height: 10px; background: var(--sage-tint); border-radius: 999px; overflow: hidden; margin-bottom: 14px; }
 .pm-bar { height: 100%; width: 0%; background: var(--forest); border-radius: 999px; transition: width .25s ease; }
 
-/* ---------- print root (screen-hidden) ---------- */
-#print-root { display: none; }
+/* ---------- printing ----------
+   Books print through a hidden iframe (see app.js); the
+   main document is never printed, so it needs no print
+   stylesheet of its own. */
 
 /* ============================================================
    Responsive
@@ -448,7 +450,10 @@ img, svg { max-width: 100%; }
   #tab-book .panel { margin-bottom: 0; }
   #tab-book .panel-design { grid-column: 1; grid-row: 1; }
   #tab-book .panel-build { grid-column: 2; grid-row: 1 / span 2; }
-  #tab-book .panel-printcheck { grid-column: 3; grid-row: 1; position: sticky; top: 16px; }
+  /* NOT sticky: the full-width rows below (series, listing,
+     wrap) used to scroll underneath this panel and get
+     covered by it. It stays in its grid cell, in flow. */
+  #tab-book .panel-printcheck { grid-column: 3; grid-row: 1; }
   #tab-book .panel-series { grid-column: 1 / -1; grid-row: 3; }
   #tab-book .panel-listing { grid-column: 1 / -1; grid-row: 4; }
   #tab-book .panel-wrap { grid-column: 1 / -1; grid-row: 5; }
@@ -511,9 +516,4 @@ img, svg { max-width: 100%; }
   #lock-submit { min-height: 54px; }
 }
 
-/* ---------- print: only the print root ---------- */
-@media print {
-  body { background: #fff; margin: 0; padding: 0; }
-  #lock-screen, #app, #progress-modal, .mobile-actions { display: none !important; }
-  #print-root { display: block !important; }
-}
+
