@@ -111,6 +111,7 @@ button, input, select, textarea { font: inherit; }
   height: 76px; display: flex; align-items: center; justify-content: center;
   font-size: 36px; position: relative;
 }
+.design-card .dc-hero { font-size: 30px; letter-spacing: 3px; }
 .design-card .dc-cluster { position: absolute; bottom: 4px; right: 7px; font-size: 12.5px; letter-spacing: 2px; }
 .design-card .dc-band { position: absolute; top: 0; left: 0; right: 0; height: 8px; }
 .design-card .dc-name { padding: 7px 6px 8px; font-weight: 700; font-size: 13.5px; color: #0b3b4a; background: #fff; }
