@@ -278,6 +278,14 @@ var PHS_SEQUENCES = [
     ]
   },
   {
+    id: 'dan-van', min: 1, title: 'Dan and the Van',
+    steps: [
+      { pic: '👦', s: 'I see Dan.' },
+      { pic: '🚐', s: 'Dan has a van.' },
+      { pic: '😴', s: 'Dan can nap.' }
+    ]
+  },
+  {
     id: 'dog-box', min: 2, title: 'The Dog in the Box',
     steps: [
       { pic: '🐶', s: 'I see a dog.' },
