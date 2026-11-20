@@ -55,7 +55,7 @@
   <main class="wrap">
 
     <div id="restore-bar" class="restore-bar" hidden>
-      <span id="restore-msg">Welcome back — your last book was restored and rebuilt, ready to print.</span>
+      <span id="restore-msg">Welcome back — your last book was restored and regenerated, ready to print.</span>
       <button id="start-fresh-btn" class="btn btn-ghost btn-small" type="button">Start fresh</button>
     </div>
 
@@ -226,9 +226,9 @@
       </section>
 
       <section class="panel panel-build">
-        <h2>Build your book</h2>
+        <h2>Generate your book</h2>
         <div class="row">
-          <button id="build-btn" class="btn btn-cta btn-big" type="button">Build my book</button>
+          <button id="build-btn" class="btn btn-cta btn-big" type="button">Generate my book</button>
         </div>
         <p id="build-status" class="hint"></p>
         <div class="row">
@@ -275,7 +275,7 @@
         <h3 class="sub-head">Levels to include <span class="opt">(tick up to 8)</span></h3>
         <div class="series-levels" id="series-levels"></div>
         <div class="row">
-          <button id="series-build-btn" class="btn btn-gold" type="button">Build the series</button>
+          <button id="series-build-btn" class="btn btn-gold" type="button">Generate the series</button>
           <button id="series-print-btn" class="btn btn-teal" type="button" disabled>Print series / Save PDF</button>
         </div>
         <p class="hint" id="series-status"></p>
@@ -283,7 +283,7 @@
 
       <section class="panel panel-listing">
         <h2><svg class="h-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.3 9.3a1 1 0 0 0 1.4 0l8.6-8.6a1 1 0 0 0 0-1.4Z"/><circle cx="7" cy="7" r="1.6"/></svg> Listing Kit</h2>
-        <p class="hint">Selling this book on KDP, Etsy or TpT? This copy is written from your built book’s real facts — its level, page count and activities. No income claims, ever. Build a book first, then copy what you need.</p>
+        <p class="hint">Selling this book on KDP, Etsy or TpT? This copy is written from your built book’s real facts — its level, page count and activities. No income claims, ever. Generate a book first, then copy what you need.</p>
         <div class="lk-block">
           <div class="lk-head"><span>KDP title</span><button class="btn btn-ghost btn-small lk-copy" type="button" data-copy="lk-kdp-title">Copy</button></div>
           <textarea id="lk-kdp-title" class="lk-text" rows="2" readonly></textarea>
@@ -312,7 +312,7 @@
           <button id="lk-backpng-btn" class="btn btn-teal" type="button" disabled>Download back cover PNG</button>
           <button id="lk-samplepng-btn" class="btn btn-teal" type="button" disabled>Download sample page PNG</button>
         </div>
-        <p class="hint" id="lk-note">Build a book above and your listing copy appears here.</p>
+        <p class="hint" id="lk-note">Generate a book above and your listing copy appears here.</p>
       </section>
 
       <section class="panel panel-wrap">
@@ -385,9 +385,14 @@
   </main>
   <footer class="site-footer">PhonicsStrip Studio Pro · A Songlap Deals tool</footer>
 
+  <!-- sticky phone Generate bar (Build tab, small screens) -->
+  <div id="build-mobile-actions" class="build-mobile-actions">
+    <button id="build-generate-btn" class="btn btn-cta" type="button">Generate my book</button>
+  </div>
+
   <!-- sticky phone action bar (Book tab, small screens) -->
   <div id="mobile-actions" class="mobile-actions">
-    <button id="m-build-btn" class="btn btn-cta" type="button">Build</button>
+    <button id="m-build-btn" class="btn btn-cta" type="button">Generate</button>
     <button id="m-print-btn" class="btn btn-teal" type="button" disabled>Print / PDF</button>
     <button id="m-png-btn" class="btn btn-teal" type="button" disabled>Cover PNG</button>
   </div>
@@ -399,7 +404,7 @@
 <!-- progress modal -->
 <div id="progress-modal" class="pm-backdrop" hidden>
   <div class="pm-card" role="dialog" aria-modal="true" aria-labelledby="pm-title">
-    <h3 id="pm-title">Building your book…</h3>
+    <h3 id="pm-title">Generating your book…</h3>
     <p id="pm-step" class="pm-step">Preparing…</p>
     <div class="pm-track"><div id="pm-bar" class="pm-bar"></div></div>
     <button id="pm-cancel" class="btn btn-ghost btn-small" type="button" hidden>Cancel</button>
