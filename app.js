@@ -853,7 +853,7 @@ if (typeof module !== 'undefined' && module.exports) {
 
   async function doBuild(silent) {
     if (!draft) generateDraft();
-    if (!silent) pmShow('Building your book…', 'Writing sentences…', 15, false);
+    if (!silent) pmShow('Generating your book…', 'Writing sentences…', 15, false);
     try {
       await tick();
       prepareDraftForBuild();
@@ -862,7 +862,7 @@ if (typeof module !== 'undefined' && module.exports) {
       var opts = readBookOpts();
       $('wrap-style').textContent = '';
       var book = BK.buildBook(draft, opts);
-      if (!silent) pmStep('Building answer keys…', 75);
+      if (!silent) pmStep('Generating answer keys…', 75);
       await tick();
       $('book-style').textContent = BK.bookCss(opts.design, opts);
       builtBook = { book: book, opts: opts, design: opts.design };
@@ -899,7 +899,7 @@ if (typeof module !== 'undefined' && module.exports) {
     if (!draft) return;
     doBuild(true).then(function () {
       if (builtBook && draft) {
-        $('build-status').textContent = '✅ Your last book was restored and rebuilt: ' +
+        $('build-status').textContent = '✅ Your last book was restored and regenerated: ' +
           builtBook.book.pageCount + ' pages · Book ' + draft.id + ' — ready to print.';
       }
     }).catch(function () { /* the restored draft still works */ });
@@ -1338,7 +1338,7 @@ if (typeof module !== 'undefined' && module.exports) {
       document.querySelectorAll('#series-levels input:checked'))
       .map(function (i) { return parseInt(i.value, 10); }).sort(function (a, b) { return a - b; });
     if (!levels.length) {
-      $('series-status').textContent = 'Tick at least one level above, then build the series.';
+      $('series-status').textContent = 'Tick at least one level above, then generate the series.';
       return;
     }
     var base = readBuildSettings();
@@ -1348,7 +1348,7 @@ if (typeof module !== 'undefined' && module.exports) {
     designs.forEach(function (d, i) { if (d.id === $('design-select').value) startIdx = i; });
     var baseOpts = readBookOpts();
     var localSel = E.nextVariantSelection(C, 8, picRotation.last, picRotation.nonce);
-    pmShow('Building your series…', 'Starting…', 4, true);
+    pmShow('Generating your series…', 'Starting…', 4, true);
     var booksMeta = [], parts = [], scoped = [], firstOpts = null, firstDesign = null;
     var totalPages = 1; /* the contents page */
     try {
@@ -1358,7 +1358,7 @@ if (typeof module !== 'undefined' && module.exports) {
           return;
         }
         var levelId = levels[k];
-        pmStep('Building Book ' + (k + 1) + ' of ' + levels.length + ' — Level ' + levelId + '…',
+        pmStep('Generating Book ' + (k + 1) + ' of ' + levels.length + ' — Level ' + levelId + '…',
           Math.round(5 + (k / levels.length) * 85));
         await tick();
         var data = E.buildBookData({
@@ -1681,7 +1681,7 @@ if (typeof module !== 'undefined' && module.exports) {
     }
     if (pages < 24) {
       msg.textContent = 'KDP paperbacks need at least 24 interior pages — this count is ' + pages +
-        '. Build a bigger book first (add more activity items on the Build tab, or raise the counts), ' +
+        '. Generate a bigger book first (add more activity items on the Build tab, or raise the counts), ' +
         'then come back here: the Wrap Builder will pick the new page count up automatically.';
       msg.classList.remove('info');
       msg.hidden = false;
@@ -1749,7 +1749,7 @@ if (typeof module !== 'undefined' && module.exports) {
     var dims = BK.wrapCoverDims(pages, paper, opts.trim === '8.5x10' ? '8.5x10' : '8.5x11');
     var rows = '';
     rows += '<div class="pc-row ' + (pages >= 24 ? 'pc-ok' : 'pc-warn') + '"><span class="pc-ic">' +
-      (pages >= 24 ? '✓' : '!') + '</span><span><b>' + pages + ' pages</b>' + (est ? ' (estimate — Build gives the exact count)' : '') +
+      (pages >= 24 ? '✓' : '!') + '</span><span><b>' + pages + ' pages</b>' + (est ? ' (estimate — Generate gives the exact count)' : '') +
       (pages >= 24
         ? ' — meets the KDP paperback minimum of 24 pages.'
         : ' — KDP paperbacks need at least 24 pages. Add ' + (24 - pages) + ' more: raise the activity counts on the Build tab.') +
@@ -1945,7 +1945,7 @@ if (typeof module !== 'undefined' && module.exports) {
     var box = $('projects-list');
     box.innerHTML = list.length ? '' :
       '<div class="empty-state"><b>No saved workbooks yet</b>' +
-      'Build your first book on the Book &amp; cover tab — it will be auto-saved here, ' +
+      'Generate your first book on the Book &amp; cover tab — it will be auto-saved here, ' +
       'and you can also save named projects with the button above.</div>';
     list.forEach(function (p, idx) {
       var row = document.createElement('div');
@@ -2091,6 +2091,10 @@ if (typeof module !== 'undefined' && module.exports) {
     });
     $('lk-backpng-btn').addEventListener('click', doBackPng);
     $('lk-samplepng-btn').addEventListener('click', doSamplePng);
+    $('build-generate-btn').addEventListener('click', function () {
+      switchTab('book');
+      $('build-btn').click();
+    });
     $('m-build-btn').addEventListener('click', function () { doBuild(); });
     $('m-print-btn').addEventListener('click', doPrint);
     $('m-png-btn').addEventListener('click', doPng);
