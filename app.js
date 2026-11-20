@@ -98,9 +98,39 @@ if (typeof module !== 'undefined' && module.exports) {
     var button = document.getElementById('lock-submit');
     var errorEl = document.getElementById('lock-error');
 
+    /* Warm-up: the license server (Apps Script) cold-starts
+       slowly — a no-await GET while the buyer is still
+       typing wakes it, so the real check lands fast. */
+    try { fetch(LICENSE_API_URL, { method: 'GET' }).then(function (r) { return r.text(); }).catch(function () { }); } catch (e) { /* offline */ }
+
     function showError(message) {
+      errorEl.classList.remove('info');
       errorEl.textContent = message;
       errorEl.hidden = false;
+    }
+    function showInfo(message) {
+      errorEl.classList.add('info');
+      errorEl.textContent = message;
+      errorEl.hidden = false;
+    }
+
+    /* One check attempt with a 45-second timeout. The
+       server can take up to ~30 s on a cold start; without
+       a timeout and a patience note, that wait reads as
+       "nothing works" — the owner's original complaint. */
+    function checkLicense(name, code) {
+      var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var timer = controller ? setTimeout(function () { controller.abort(); }, 45000) : null;
+      var opts = {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ name: name, code: code })
+      };
+      if (controller) opts.signal = controller.signal;
+      return fetch(LICENSE_API_URL, opts)
+        .then(function (res) { return res.json(); })
+        .then(function (data) { if (timer) clearTimeout(timer); return interpretLicenseResponse(data); })
+        .catch(function (err) { if (timer) clearTimeout(timer); throw err; });
     }
 
     form.addEventListener('submit', function (ev) {
@@ -108,17 +138,17 @@ if (typeof module !== 'undefined' && module.exports) {
       var name = nameInput.value.trim();
       var code = codeInput.value.trim();
       if (!name || !code) { showError(licenseErrorMessage('missing_fields')); return; }
-      errorEl.hidden = true;
       button.disabled = true;
       button.textContent = 'Checking…';
-      fetch(LICENSE_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ name: name, code: code })
-      })
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
-          var decision = interpretLicenseResponse(data);
+      showInfo('Checking your code — the first check can take up to 30 seconds, please wait…');
+      checkLicense(name, code)
+        .catch(function () {
+          /* one automatic retry on a network failure /
+             timeout before the buyer sees an error */
+          showInfo('Still checking — the server was slow to answer, trying once more…');
+          return checkLicense(name, code);
+        })
+        .then(function (decision) {
           if (decision.action === 'unlock') {
             try {
               localStorage.setItem(NAME_KEY, name);
@@ -146,6 +176,27 @@ if (typeof module !== 'undefined' && module.exports) {
   var wrapBuilt = null;      // { meta, design, dims }
   var seedVariant = 1;
   var buildDirty = true;
+  /* word-theme filter: chip id -> bank categories it leans
+     generation toward (engine ctx.themeCats) */
+  var THEMES = [
+    { id: 'all', name: 'All words', cats: null },
+    { id: 'animals', name: 'Animals', cats: ['animals'] },
+    { id: 'food', name: 'Food', cats: ['food'] },
+    { id: 'home', name: 'Home & School', cats: ['objects', 'clothes', 'home', 'body'] },
+    { id: 'outdoors', name: 'Outdoors', cats: ['nature', 'transport'] },
+    { id: 'people', name: 'People', cats: ['people'] }
+  ];
+  var themeFilter = 'all';
+  /* paginated preview state */
+  var preview = { page: 0, pages: [] };
+  /* what the main Print button prints: the document the
+     preview is currently showing (single book or series) */
+  var currentPrint = null;
+  /* combined series document after a Series Builder build:
+     { html, css, pageCount, title } */
+  var seriesDoc = null;
+  var AUTOSAVE_KEY = 'phonics_autosave_v1';
+  var autosaveTimer = null;
   /* buyer's own pictures: { word: dataURL } replaces that
      word's picture everywhere; buyer's own words (max 3):
      [ { w, img, c, level } ], each validated as decodable
@@ -193,14 +244,36 @@ if (typeof module !== 'undefined' && module.exports) {
     ['build', 'content', 'book', 'books'].forEach(function (t) {
       $('tab-' + t).hidden = t !== name;
     });
+    /* the phone CSS keys the sticky action bar + bottom
+       padding off this attribute */
+    document.body.dataset.tab = name;
     if ((name === 'content' || name === 'book') && buildDirty) {
       generateDraft('Settings changed — items were regenerated and edits reset.');
     }
+    if (name === 'book') updatePrintCheck();
   }
 
   /* ================= build tab ================= */
 
   function currentLevel() { return C.phsLevelById(parseInt($('level-select').value, 10)); }
+
+  /* The bank categories the active theme chip leans
+     toward, narrowed to categories that actually have
+     words at the current level (null = no filter). */
+  function themeCatsForFilter(levelId) {
+    var theme = null;
+    THEMES.forEach(function (t) { if (t.id === themeFilter) theme = t; });
+    if (!theme || !theme.cats) return null;
+    var cum = C.phsCumulative(levelId || currentLevel().id);
+    var present = {};
+    cum.nouns.forEach(function (n) { present[n.c] = true; });
+    var cats = theme.cats.filter(function (c) { return present[c]; });
+    return cats.length ? cats : null;
+  }
+  function themeById(id) {
+    for (var i = 0; i < THEMES.length; i++) if (THEMES[i].id === id) return THEMES[i];
+    return THEMES[0];
+  }
 
   /* ================= picture pack ================= */
 
@@ -252,6 +325,7 @@ if (typeof module !== 'undefined' && module.exports) {
     }).join('') +
       (pack.deco ? '<span class="pp-item">' + pack.deco.star +
         '<span class="pp-word">tracker</span></span>' : '');
+    syncPackCards();
   }
 
   /* ================= your own pictures ================= */
@@ -428,10 +502,11 @@ if (typeof module !== 'undefined' && module.exports) {
   function updateLevelChrome() {
     var lv = currentLevel();
     var cum = C.phsCumulative(lv.id);
-    $('level-info').textContent = '📖 ' + lv.patterns + ' · ' + cum.nouns.length + ' reading words, ' +
+    $('level-info').textContent = lv.patterns + ' · ' + cum.nouns.length + ' reading words, ' +
       cum.verbs.length + ' action words — every level keeps all earlier sounds.';
     $('level-sight').textContent = 'Focus words (sight words) so far: ' + cum.sight.join(' · ');
     $('seed-note').textContent = 'Sentence set #' + seedVariant + ' for this book.';
+    syncLevelCards();
   }
 
   function renderActivities(preset) {
@@ -471,6 +546,7 @@ if (typeof module !== 'undefined' && module.exports) {
       title: $('in-title').value.trim() || 'My Reading Book',
       childName: $('in-child').value.trim(),
       pack: $('pack-select').value,
+      theme: themeFilter,
       activities: activities,
       customText: $('custom-text').value,
       customPics: Object.assign({}, customPics),
@@ -483,8 +559,12 @@ if (typeof module !== 'undefined' && module.exports) {
   function markDirty() {
     buildDirty = true;
     builtBook = null;
+    currentPrint = null;
     $('print-btn').disabled = true;
     $('png-btn').disabled = true;
+    if ($('m-print-btn')) { $('m-print-btn').disabled = true; $('m-png-btn').disabled = true; }
+    if ($('lk-backpng-btn')) { $('lk-backpng-btn').disabled = true; $('lk-samplepng-btn').disabled = true; }
+    scheduleAutosave();
   }
 
   function generateDraft(note) {
@@ -506,7 +586,7 @@ if (typeof module !== 'undefined' && module.exports) {
     }
     draft = E.buildBookData({
       level: s.level, title: s.title, childName: s.childName, seed: seed,
-      pack: s.pack,
+      pack: s.pack, themeCats: themeCatsForFilter(),
       activities: s.activities, customText: s.customText,
       customPics: s.customPics, customWords: s.customWords,
       picVariants: variantSel
@@ -515,9 +595,39 @@ if (typeof module !== 'undefined' && module.exports) {
     savePicRotation();
     buildDirty = false;
     renderEditor();
+    updateThemeNote();
     if (note) $('editor-status').textContent = note;
     $('build-status').textContent = 'Draft ready: ' + draft.sections.reduce(function (a, x) { return a + x.items.length; }, 0) +
       ' items. Review them in the Content editor, then build the book.';
+    updatePrintCheck();
+    scheduleAutosave();
+  }
+
+  /* Honest theme feedback: if the chosen theme produced
+     no themed target words at this level, say so plainly
+     (the book then simply uses the full word bank). */
+  function updateThemeNote() {
+    var note = $('theme-note');
+    if (!note) return;
+    if (themeFilter === 'all' || !draft) { note.textContent = ''; return; }
+    var cats = themeCatsForFilter();
+    if (!cats) {
+      note.textContent = 'The ' + themeById(themeFilter).name + ' theme has no words at this level yet — the book uses the full word bank.';
+      return;
+    }
+    var themed = 0, total = 0;
+    draft.sections.forEach(function (s) {
+      s.items.forEach(function (it) {
+        var w = it.type === 'circle' ? it.correct.w : (it.type === 'builder' ? it.answer : null);
+        if (!w) return;
+        total++;
+        var noun = findNoun(w);
+        if (noun && cats.indexOf(noun.c) !== -1) themed++;
+      });
+    });
+    note.textContent = total && themed === 0
+      ? 'This level ran out of ' + themeById(themeFilter).name.toLowerCase() + ' words, so this book uses the full word bank.'
+      : 'Theme on: ' + themed + ' of ' + total + ' picture-strip answers are ' + themeById(themeFilter).name.toLowerCase() + ' words.';
   }
 
   /* ================= content editor ================= */
@@ -665,29 +775,12 @@ if (typeof module !== 'undefined' && module.exports) {
 
   /* Re-derive everything that depends on edited items, right
      before building: builder blanks/choices, sequence print
-     order, and the answer keys (from the printed rows). */
+     order, circle correct-word repair, and the answer keys
+     (from the printed rows). The logic lives in the engine
+     (finalizeBookData) so the Series Builder finalises its
+     books exactly the same way. */
   function prepareDraftForBuild() {
-    var rng = E.makeRng(draft.id + '|build');
-    draft.sections.forEach(function (section) {
-      section.items.forEach(function (item) {
-        if (item.type === 'builder') {
-          var noun = findNoun(item.answer);
-          if (noun && item.sentence.toLowerCase().indexOf(item.answer) !== -1) {
-            item.pic = { w: noun.w, e: E.picFor(C, draft.pack, noun, draft.customPics, draft.picVariants) };
-            item.blanked = item.sentence.replace(new RegExp('\\b' + item.answer + '\\b', 'i'), '______');
-            var ds = E.distractorsFor(C, draft.level, item.sentence, noun, rng,
-              { pack: draft.pack, customPics: draft.customPics, picVariants: draft.picVariants });
-            item.choices = E.shuffle([noun.w].concat(ds.map(function (x) { return x.w; })), rng);
-          }
-        } else if (item.type === 'seq') {
-          item.printed = item.printed.map(function (p) {
-            var match = item.correctOrder.filter(function (st) { return st.pic === p.pic; })[0];
-            return match ? { pic: p.pic, s: match.s } : p;
-          });
-        }
-      });
-    });
-    draft.answerKeys = E.deriveAnswerKeys(draft.sections);
+    E.finalizeBookData(C, draft);
   }
 
   /* ================= book tab ================= */
@@ -731,39 +824,166 @@ if (typeof module !== 'undefined' && module.exports) {
       backCover: $('backcover-on').checked,
       inkSaver: $('inksaver-on').checked,
       bw: $('bw-on').checked,
+      density: $('density-select').value,
+      rowStyle: $('rowstyle-select').value,
+      markStyle: $('markstyle-select').value,
       business: $('in-business').value || 'Songlap Deals'
     };
   }
 
-  function doBuild() {
+  /* ---------- progress modal ---------- */
+
+  var pmCancelled = false;
+  function pmShow(title, step, pct, cancellable) {
+    pmCancelled = false;
+    $('progress-modal').hidden = false;
+    $('pm-title').textContent = title;
+    $('pm-step').textContent = step;
+    $('pm-bar').style.width = pct + '%';
+    $('pm-cancel').hidden = !cancellable;
+  }
+  function pmStep(step, pct) {
+    $('pm-step').textContent = step;
+    $('pm-bar').style.width = pct + '%';
+  }
+  function pmHide() { $('progress-modal').hidden = true; }
+  function tick() { return new Promise(function (res) { setTimeout(res, 30); }); }
+
+  /* ---------- build ---------- */
+
+  async function doBuild() {
     if (!draft) generateDraft();
-    prepareDraftForBuild();
-    var opts = readBookOpts();
-    $('wrap-style').textContent = '';
-    var book = BK.buildBook(draft, opts);
-    $('book-style').textContent = BK.bookCss(opts.design, opts);
-    $('book-preview').innerHTML = book.html;
-    builtBook = { book: book, opts: opts, design: opts.design };
-    $('print-btn').disabled = false;
-    $('png-btn').disabled = false;
-    $('build-status').textContent = '✅ Book built: ' + book.pageCount + ' pages · ' +
-      draft.sections.length + ' activity sections · Book ' + draft.id + '. Preview below — check it, then Print / Save PDF.';
-    $('wrap-pages').value = book.pageCount;
-    updateWrapDims();
+    pmShow('Building your book…', 'Writing sentences…', 15, false);
+    try {
+      await tick();
+      prepareDraftForBuild();
+      pmStep('Placing pictures…', 45);
+      await tick();
+      var opts = readBookOpts();
+      $('wrap-style').textContent = '';
+      var book = BK.buildBook(draft, opts);
+      pmStep('Building answer keys…', 75);
+      await tick();
+      $('book-style').textContent = BK.bookCss(opts.design, opts);
+      builtBook = { book: book, opts: opts, design: opts.design };
+      currentPrint = { html: book.html, css: BK.bookCss(opts.design, opts) };
+      renderPreview(book.html, opts);
+      $('print-btn').disabled = false;
+      $('png-btn').disabled = false;
+      $('m-print-btn').disabled = false;
+      $('m-png-btn').disabled = false;
+      $('lk-backpng-btn').disabled = false;
+      $('lk-samplepng-btn').disabled = false;
+      $('build-status').textContent = '✅ Book built: ' + book.pageCount + ' pages · ' +
+        draft.sections.length + ' activity sections · Book ' + draft.id + '. Preview below — check it, then Print / Save PDF.';
+      $('wrap-pages').value = book.pageCount;
+      updateWrapDims();
+      updatePrintCheck();
+      refreshListingKit();
+      /* auto-save: the built book becomes a project AND the
+         restore point, so a reload never loses it */
+      autoSaveProject('Auto — ' + draft.title + ' — ' + new Date().toLocaleDateString());
+      saveLastState();
+    } finally {
+      pmHide();
+    }
+  }
+
+  /* ---------- paginated preview ---------- */
+
+  function renderPreview(html, opts) {
+    var box = $('book-preview');
+    box.innerHTML = '<div class="pv-viewport"><div class="pv-scale">' + html + '</div></div>';
+    preview.pages = Array.prototype.slice.call(box.querySelectorAll('.bk-page'));
+    /* pages render at their true print size (trim minus
+       margins) and are then SCALED to fit — never reflowed */
+    var T = BK.TRIMS[opts.trim] || BK.TRIMS.letter;
+    var wmm = (T.wmm - 20) + 'mm';
+    preview.pages.forEach(function (p) { p.style.width = wmm; });
+    preview.page = 0;
+    box.dataset.mode = $('pv-mode').value || 'single';
+    $('pv-bar').hidden = false;
+    applyPreview();
+  }
+
+  function applyPreview() {
+    var box = $('book-preview');
+    var mode = box.dataset.mode || 'single';
+    var per = mode === 'spread' ? 2 : 1;
+    preview.pages.forEach(function (p, i) {
+      var on = mode === 'all' || (i >= preview.page && i < preview.page + per);
+      p.classList.toggle('pv-on', on);
+    });
+    var total = preview.pages.length;
+    $('pv-label').textContent = mode === 'all'
+      ? 'All ' + total + ' pages'
+      : 'Page ' + Math.min(preview.page + 1, total) + (mode === 'spread' && preview.page + 1 < total ? '–' + (preview.page + 2) : '') + ' of ' + total;
+    $('pv-prev').disabled = preview.page <= 0;
+    $('pv-next').disabled = preview.page + per >= total;
+    layoutPreviewScale();
+  }
+
+  /* Scale the (true-size) pages to the chosen zoom / fit.
+     The scale wrapper keeps the layout height honest by
+     reserving scaled space around the transformed pages. */
+  function layoutPreviewScale() {
+    var box = $('book-preview');
+    var scaleEl = box.querySelector('.pv-scale');
+    var viewport = box.querySelector('.pv-viewport');
+    if (!scaleEl || !viewport || !preview.pages.length) return;
+    scaleEl.style.transform = '';
+    scaleEl.style.width = '';
+    scaleEl.style.height = '';
+    var mode = box.dataset.mode || 'single';
+    var per = mode === 'spread' ? 2 : 1;
+    var visible = preview.pages.filter(function (p, i) {
+      return mode === 'all' || (i >= preview.page && i < preview.page + per);
+    });
+    if (!visible.length) return;
+    var naturalW = visible.reduce(function (a, p) { return a + p.offsetWidth; }, 0) + (mode === 'spread' ? 18 : 0);
+    var naturalH = mode === 'all'
+      ? visible.reduce(function (a, p) { return a + p.offsetHeight + 18; }, 0)
+      : Math.max.apply(null, visible.map(function (p) { return p.offsetHeight; }));
+    var zoomVal = $('pv-zoom').value;
+    var avail = Math.max(200, viewport.clientWidth - 4);
+    var s = zoomVal === 'fit' ? Math.min(1, avail / naturalW) : parseInt(zoomVal, 10) / 100;
+    scaleEl.style.width = naturalW + 'px';
+    scaleEl.style.height = naturalH + 'px';
+    scaleEl.style.transform = 'scale(' + s + ')';
+    scaleEl.style.marginBottom = (naturalH * (s - 1)) + 'px';
+    scaleEl.style.marginRight = (naturalW * (s - 1)) + 'px';
+  }
+
+  /* ---------- same-tab printing ---------- */
+
+  /* Print in THIS tab: the print root holds the document,
+     the print stylesheet hides the studio, and the state
+     was auto-saved first — so returning from print can
+     never strand the buyer on dead tabs (the old popup
+     flow lost the book; this one cannot). */
+  function printDocument(html, cssText, otherStyleId) {
+    saveLastState();
+    var bookStyle = $('book-style'), wrapStyle = $('wrap-style');
+    var savedBookCss = bookStyle.textContent, savedWrapCss = wrapStyle.textContent;
+    if (otherStyleId === 'wrap') { bookStyle.textContent = ''; wrapStyle.textContent = cssText; }
+    else { wrapStyle.textContent = ''; bookStyle.textContent = cssText; }
+    $('print-root').innerHTML = html;
+    document.body.classList.add('is-printing');
+    function cleanup() {
+      document.body.classList.remove('is-printing');
+      $('print-root').innerHTML = '';
+      bookStyle.textContent = savedBookCss;
+      wrapStyle.textContent = savedWrapCss;
+      window.removeEventListener('afterprint', cleanup);
+    }
+    window.addEventListener('afterprint', cleanup);
+    setTimeout(cleanup, 60000); /* safety if afterprint never fires */
+    setTimeout(function () { window.print(); }, 60);
   }
 
   function doPrint() {
-    if (!builtBook) return;
-    var w = window.open('', '_blank');
-    if (!w) { alert('Please allow pop-ups for this site so the print view can open.'); return; }
-    w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><base href="' +
-      escapeAttr(location.href) + '"><title>' +
-      escapeHtml(draft.title) + ' (' + draft.id + ')</title><style>' +
-      BK.bookCss(builtBook.design, builtBook.opts) + '</style></head><body>' +
-      builtBook.book.html + '</body></html>');
-    w.document.close();
-    w.focus();
-    setTimeout(function () { w.print(); }, 350);
+    if (!currentPrint) return;
+    printDocument(currentPrint.html, currentPrint.css, 'book');
   }
 
   /* Front cover PNG, drawn on canvas (same approach as our
@@ -878,6 +1098,482 @@ if (typeof module !== 'undefined' && module.exports) {
     }, 'image/png');
   }
 
+  /* ================= visual card selectors ================= */
+
+  function renderLevelCards() {
+    var box = $('level-cards');
+    if (!box) return;
+    box.innerHTML = '';
+    C.PHS_LEVELS.forEach(function (lv) {
+      var cum = C.phsCumulative(lv.id);
+      var card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'level-card' + (lv.id === currentLevel().id ? ' on' : '');
+      card.dataset.level = lv.id;
+      var short = lv.name.indexOf('·') !== -1 ? lv.name.split('·')[1].trim() : lv.name;
+      card.innerHTML = '<span class="lc-num">Level ' + lv.id + '</span>' +
+        '<span class="lc-name">' + escapeHtml(short) + '</span>' +
+        '<span class="lc-pat">' + escapeHtml(lv.patterns) + '</span>' +
+        '<span class="lc-count">' + cum.nouns.length + ' reading words</span>';
+      card.addEventListener('click', function () {
+        $('level-select').value = lv.id;
+        updateLevelChrome();
+        populateWordSelect();
+        renderThemeChips();
+        markDirty();
+      });
+      box.appendChild(card);
+    });
+  }
+  function syncLevelCards() {
+    var box = $('level-cards');
+    if (!box) return;
+    var cur = $('level-select').value;
+    box.querySelectorAll('.level-card').forEach(function (card) {
+      card.classList.toggle('on', card.dataset.level === String(cur));
+    });
+  }
+
+  function renderPackCards() {
+    var box = $('pack-cards');
+    if (!box) return;
+    box.innerHTML = '';
+    var all = {};
+    C.PHS_LEVELS.forEach(function (lv) {
+      lv.nouns.forEach(function (n) { if (!all[n.w]) all[n.w] = n; });
+    });
+    C.PHS_PICTURE_PACKS.forEach(function (pack) {
+      var card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'pack-card' + (pack.id === currentPack().id ? ' on' : '');
+      card.dataset.pack = pack.id;
+      var pics = ['cat', 'dog', 'fish'].map(function (w) {
+        var n = all[w];
+        if (!n) return '';
+        var p = E.picFor(C, pack.id, n, customPics, picRotation.last);
+        return (isDataUrl(p) || isAssetPath(p))
+          ? '<img src="' + p + '" alt="">'
+          : '<span class="pc-emoji">' + escapeHtml(p) + '</span>';
+      }).join('');
+      card.innerHTML = '<span class="pc-pics">' + pics + '</span>' +
+        '<span class="pc-name">' + escapeHtml(pack.name) + '</span>';
+      card.addEventListener('click', function () {
+        $('pack-select').value = pack.id;
+        updatePackChrome();
+        markDirty();
+      });
+      box.appendChild(card);
+    });
+  }
+  function syncPackCards() {
+    var box = $('pack-cards');
+    if (!box) return;
+    var cur = $('pack-select').value;
+    box.querySelectorAll('.pack-card').forEach(function (card) {
+      card.classList.toggle('on', card.dataset.pack === cur);
+    });
+  }
+
+  /* ================= word-theme chips ================= */
+
+  function renderThemeChips() {
+    var box = $('theme-chips');
+    if (!box) return;
+    box.innerHTML = '';
+    var cum = C.phsCumulative(currentLevel().id);
+    var present = {};
+    cum.nouns.forEach(function (n) { present[n.c] = true; });
+    THEMES.forEach(function (t) {
+      if (t.cats && !t.cats.some(function (c) { return present[c]; })) return;
+      var chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'theme-chip' + (themeFilter === t.id ? ' on' : '');
+      chip.textContent = t.name;
+      chip.addEventListener('click', function () {
+        themeFilter = t.id;
+        renderThemeChips();
+        markDirty();
+      });
+      box.appendChild(chip);
+    });
+  }
+
+  /* ================= collapsible panels ================= */
+
+  function initCollapsibles() {
+    document.querySelectorAll('.panel[data-collapsible]').forEach(function (panel) {
+      var h2 = panel.querySelector('h2');
+      if (!h2 || panel.querySelector('.panel-head')) return;
+      var head = document.createElement('div');
+      head.className = 'panel-head';
+      h2.parentNode.insertBefore(head, h2);
+      head.appendChild(h2);
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'panel-toggle';
+      btn.setAttribute('aria-label', 'Collapse or expand this section');
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+      btn.addEventListener('click', function () { panel.classList.toggle('collapsed'); });
+      head.appendChild(btn);
+    });
+  }
+
+  /* ================= series builder ================= */
+
+  function buildSeriesChips() {
+    var box = $('series-levels');
+    if (!box) return;
+    box.innerHTML = '';
+    C.PHS_LEVELS.forEach(function (lv) {
+      var lab = document.createElement('label');
+      lab.className = 'series-level' + (lv.id <= 3 ? ' on' : '');
+      var short = lv.name.indexOf('·') !== -1 ? lv.name.split('·')[1].trim() : lv.name;
+      lab.innerHTML = '<input type="checkbox" value="' + lv.id + '"' + (lv.id <= 3 ? ' checked' : '') + '> L' + lv.id + ' · ' + escapeHtml(short);
+      lab.querySelector('input').addEventListener('change', function (ev) {
+        var checked = box.querySelectorAll('input:checked');
+        if (checked.length > 8) { ev.target.checked = false; return; }
+        lab.classList.toggle('on', ev.target.checked);
+      });
+      box.appendChild(lab);
+    });
+  }
+
+  function saveSeriesProject(data, design) {
+    var st = readState();
+    st.level = data.level;
+    st.title = data.title;
+    st.childName = data.childName;
+    st.pack = data.pack;
+    st.designId = design.id;
+    st.draft = data;
+    var list = loadProjects();
+    list.unshift({
+      name: 'Series — L' + data.level + ' — ' + data.title,
+      savedAt: new Date().toLocaleString(), state: st
+    });
+    saveProjects(list.slice(0, 24));
+    renderProjects();
+  }
+
+  async function buildSeries() {
+    var levels = Array.prototype.slice.call(
+      document.querySelectorAll('#series-levels input:checked'))
+      .map(function (i) { return parseInt(i.value, 10); }).sort(function (a, b) { return a - b; });
+    if (!levels.length) {
+      $('series-status').textContent = 'Tick at least one level above, then build the series.';
+      return;
+    }
+    var base = readBuildSettings();
+    var seriesTitle = $('series-title').value.trim() || 'My First Reading Series';
+    var designs = D.PHS_DESIGNS;
+    var startIdx = 0;
+    designs.forEach(function (d, i) { if (d.id === $('design-select').value) startIdx = i; });
+    var baseOpts = readBookOpts();
+    var localSel = E.nextVariantSelection(C, 8, picRotation.last, picRotation.nonce);
+    pmShow('Building your series…', 'Starting…', 4, true);
+    var booksMeta = [], parts = [], scoped = [], firstOpts = null, firstDesign = null;
+    var totalPages = 1; /* the contents page */
+    try {
+      for (var k = 0; k < levels.length; k++) {
+        if (pmCancelled) {
+          $('series-status').textContent = 'Series build cancelled — no series was made.';
+          return;
+        }
+        var levelId = levels[k];
+        pmStep('Building Book ' + (k + 1) + ' of ' + levels.length + ' — Level ' + levelId + '…',
+          Math.round(5 + (k / levels.length) * 85));
+        await tick();
+        var data = E.buildBookData({
+          level: levelId, title: base.title, childName: base.childName,
+          seed: 'series|L' + levelId + '|' + base.title + '|' + base.childName + '|v' + seedVariant,
+          pack: base.pack, themeCats: themeCatsForFilter(levelId),
+          activities: base.activities, customText: '',
+          customPics: base.customPics, customWords: base.customWords,
+          picVariants: localSel
+        }, C);
+        E.finalizeBookData(C, data);
+        var design = designs[(startIdx + k) % designs.length];
+        var opts = Object.assign({}, baseOpts, {
+          design: design, seriesIndex: k + 1, seriesTotal: levels.length
+        });
+        if (!firstOpts) { firstOpts = opts; firstDesign = design; }
+        var built = BK.buildBook(data, opts);
+        booksMeta.push({ n: k + 1, levelName: data.levelName, designName: design.name, pages: built.pageCount });
+        parts.push('<div class="series-scope-' + (k + 1) + '">' + built.html + '</div>');
+        scoped.push(BK.scopeCss(BK.bookCss(design, opts), '.series-scope-' + (k + 1)));
+        totalPages += built.pageCount;
+        saveSeriesProject(data, design);
+      }
+      pmStep('Joining the books…', 95);
+      await tick();
+      var firstCss = BK.bookCss(firstDesign, firstOpts);
+      var pageRule = (firstCss.match(/@page\s*{[^}]*}/) || [''])[0];
+      var contents = '<div class="series-scope-1">' +
+        BK.seriesContentsPage(seriesTitle, booksMeta, base.childName, baseOpts.business) + '</div>';
+      var css = pageRule + '\n' + scoped.join('\n');
+      var html = contents + '\n' + parts.join('\n');
+      seriesDoc = { html: html, css: css, pageCount: totalPages, title: seriesTitle };
+      currentPrint = { html: html, css: css };
+      $('book-style').textContent = css;
+      $('wrap-style').textContent = '';
+      renderPreview(html, firstOpts);
+      $('series-print-btn').disabled = false;
+      $('series-status').textContent = '✅ Series built: ' + levels.length + ' books · ' + totalPages +
+        ' pages in one document (contents page first). Preview above — Print series / Save PDF makes the combined file. ' +
+        'Each book was also saved on its own in My Books.';
+      saveLastState();
+    } finally {
+      pmHide();
+    }
+  }
+
+  /* ================= listing kit ================= */
+
+  function refreshListingKit() {
+    if (!builtBook || !draft) return;
+    var T = BK.TRIMS[builtBook.opts.trim] || BK.TRIMS.letter;
+    var kit = BK.listingKitFor(draft, {
+      pageCount: builtBook.book.pageCount, trimLabel: T.label, business: builtBook.opts.business
+    });
+    $('lk-kdp-title').value = kit.kdpTitle;
+    $('lk-kdp-subtitle').value = kit.kdpSubtitle;
+    $('lk-kdp-desc').value = kit.kdpDescription;
+    $('lk-keywords').value = kit.keywords.join('\n');
+    $('lk-etsy-title').value = kit.etsyTitle;
+    $('lk-etsy-desc').value = kit.etsyDescription + '\n\nInside the book:\n' +
+      kit.bullets.map(function (b) { return '• ' + b; }).join('\n');
+    $('lk-note').textContent = 'Written from this book’s real facts: ' + kit.pageCount + ' pages · ' +
+      kit.totalItems + ' activities · ' + draft.levelName + ' · design ' + builtBook.design.name + '.';
+  }
+
+  function copyListingText(id, btn) {
+    var el = $(id);
+    if (!el || !el.value) return;
+    function done() {
+      var old = btn.textContent;
+      btn.textContent = 'Copied ✓';
+      setTimeout(function () { btn.textContent = old; }, 1600);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(el.value).then(done).catch(function () {
+        el.select(); document.execCommand('copy'); done();
+      });
+    } else {
+      el.select(); document.execCommand('copy'); done();
+    }
+  }
+
+  function downloadCanvas(canvas, filename) {
+    canvas.toBlob(function (blob) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+    }, 'image/png');
+  }
+
+  /* Back cover PNG: a canvas rendering of the back cover's
+     facts (what's inside, the 8-level staircase with this
+     level lit, barcode box with the book ID) in the built
+     book's design colours — for marketplace listing images. */
+  function doBackPng() {
+    if (!builtBook || !draft) return;
+    var d = builtBook.design, opts = builtBook.opts;
+    var W = 1700, H = opts.trim === '8.5x10' ? 2000 : 2200;
+    var canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = d.pageBg; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = d.cardBg;
+    roundRect(ctx, 70, 70, W - 140, H - 140, 26); ctx.fill();
+    ctx.strokeStyle = d.accent; ctx.lineWidth = 8;
+    roundRect(ctx, 70, 70, W - 140, H - 140, 26); ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = d.headerBg;
+    ctx.font = 'bold 74px ' + d.headerFont;
+    wrapLines(ctx, 'A gentle first step into reading', W - 360).forEach(function (ln, i) {
+      ctx.fillText(ln, W / 2, 250 + i * 86);
+    });
+    ctx.font = '42px ' + d.cellFont;
+    ctx.fillStyle = d.cellText;
+    var y = 470;
+    wrapLines(ctx, 'Every sentence uses only the sounds taught up to ' + draft.levelName +
+      ', so a beginner can sound out every word — no guessing, just real reading.', W - 380)
+      .forEach(function (ln) { ctx.fillText(ln, W / 2, y); y += 56; });
+    y += 30;
+    ctx.font = 'bold 50px ' + d.headerFont;
+    ctx.fillStyle = d.headerBg;
+    ctx.fillText('What’s inside this book', W / 2, y); y += 70;
+    ctx.font = '42px ' + d.cellFont;
+    ctx.fillStyle = d.cellText;
+    ctx.textAlign = 'left';
+    draft.sections.forEach(function (s) {
+      ctx.fillText('✓  ' + s.activity.name + ' — ' + s.items.length + (s.items.length === 1 ? ' activity' : ' activities'), 300, y);
+      y += 58;
+    });
+    ctx.textAlign = 'center';
+    y += 36;
+    ctx.font = 'bold 50px ' + d.headerFont;
+    ctx.fillStyle = d.headerBg;
+    ctx.fillText('Collect all 8 levels', W / 2, y); y += 40;
+    /* staircase */
+    var sw = 150, gap = 18, totalW = 8 * sw + 7 * gap, x0 = (W - totalW) / 2, baseY = y + 300;
+    for (var i = 0; i < 8; i++) {
+      var hgt = 60 + i * 34, x = x0 + i * (sw + gap), cur = (i + 1) === draft.level;
+      ctx.fillStyle = cur ? d.headerBg : d.cellBg;
+      roundRect(ctx, x, baseY - hgt, sw, hgt, 10); ctx.fill();
+      ctx.strokeStyle = d.headerBg; ctx.lineWidth = 4;
+      roundRect(ctx, x, baseY - hgt, sw, hgt, 10); ctx.stroke();
+      ctx.fillStyle = cur ? d.headerText : d.headerBg;
+      ctx.font = 'bold 40px ' + d.cellFont;
+      ctx.fillText('L' + (i + 1), x + sw / 2, baseY - 16);
+    }
+    y = baseY + 90;
+    ctx.font = '46px ' + d.headerFont;
+    ctx.fillStyle = d.headerBg;
+    ctx.fillText('★ Finish this book to earn the Super Reader Certificate inside!', W / 2, y); y += 80;
+    ctx.font = '44px ' + d.cellFont;
+    ctx.fillText('Happy reading!', W / 2, y); y += 90;
+    /* barcode box */
+    ctx.fillStyle = '#ffffff';
+    roundRect(ctx, W / 2 - 300, y, 600, 300, 8); ctx.fill();
+    ctx.strokeStyle = '#999999'; ctx.lineWidth = 3;
+    roundRect(ctx, W / 2 - 300, y, 600, 300, 8); ctx.stroke();
+    ctx.fillStyle = '#1a1a1a';
+    var seedStr = String(draft.id || 'PHONICS'), bx = W / 2 - 240;
+    for (var b = 0; b < 34; b++) {
+      var code = seedStr.charCodeAt(b % seedStr.length) + b * 7;
+      var bw2 = [5, 9, 14][code % 3];
+      ctx.fillRect(bx, y + 50, bw2, 150);
+      bx += bw2 + 6;
+    }
+    ctx.font = '34px ' + d.cellFont;
+    ctx.fillText(draft.id, W / 2, y + 258);
+    ctx.fillStyle = d.cellText;
+    ctx.font = '38px ' + d.cellFont;
+    ctx.fillText(opts.business || 'Songlap Deals', W / 2, H - 130);
+    downloadCanvas(canvas, 'phonicsstrip-back-cover-' + draft.id + '.png');
+  }
+
+  /* Sample page PNG: the first activity page of the built
+     book, drawn on canvas at print size (header band +
+     strips with their real sentences and pictures) — a
+     listing image a seller can upload as-is. */
+  function doSamplePng() {
+    if (!builtBook || !draft || !draft.sections.length) return;
+    var section = draft.sections[0];
+    /* page 1 of the first section, exactly as it prints */
+    var entryPages = BK.paginateItems(section.items,
+      function (it) {
+        return section.activity.id === 'custom'
+          ? (it.type === 'draw' ? 2 : BK.capacityFor('custom', builtBook.opts.density))
+          : BK.capacityFor(section.activity.id, builtBook.opts.density);
+      },
+      function (it) { return section.activity.id === 'custom' ? it.type : section.activity.id; });
+    var pageItems = (entryPages[0] || []).map(function (x) { return x.it; });
+    if (!pageItems.length) return;
+    var d = builtBook.design, opts = builtBook.opts;
+    var W = 1700, H = opts.trim === '8.5x10' ? 2000 : 2200;
+    var canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+    /* header band */
+    ctx.fillStyle = d.headerBg;
+    roundRect(ctx, 60, 60, W - 120, 170, 24); ctx.fill();
+    ctx.fillStyle = d.headerText;
+    ctx.font = 'bold 62px ' + d.headerFont;
+    ctx.textAlign = 'left';
+    ctx.fillText(section.activity.name, 110, 168);
+    /* load any image pictures first, then draw */
+    var urls = {};
+    pageItems.forEach(function (it) {
+      if (it.type === 'circle') it.options.forEach(function (o) {
+        if (isDataUrl(o.e) || isAssetPath(o.e)) urls[o.e] = true;
+      });
+      if (it.type === 'builder' && (isDataUrl(it.pic.e) || isAssetPath(it.pic.e))) urls[it.pic.e] = true;
+    });
+    var loaded = {};
+    var pending = Object.keys(urls).map(function (u) {
+      return new Promise(function (res2) {
+        var img = new Image();
+        img.onload = function () { loaded[u] = img; res2(); };
+        img.onerror = function () { res2(); };
+        img.src = u;
+      });
+    });
+    Promise.all(pending).then(function () {
+      var y = 300;
+      function drawPic(e, cx, cy, size) {
+        if (loaded[e]) {
+          var img = loaded[e];
+          var sc = Math.min(size / img.width, size / img.height);
+          ctx.drawImage(img, cx - (img.width * sc) / 2, cy - (img.height * sc) / 2, img.width * sc, img.height * sc);
+        } else if (isDataUrl(e) || isAssetPath(e)) {
+          /* image failed to load — fall back to no glyph */
+        } else {
+          ctx.font = size + 'px "Segoe UI Emoji", sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(e, cx, cy + size * 0.36);
+        }
+      }
+      pageItems.forEach(function (it, idx) {
+        if (it.type === 'circle') {
+          ctx.strokeStyle = d.cellBorder; ctx.lineWidth = 5;
+          roundRect(ctx, 60, y, W - 120, 330, 20); ctx.stroke();
+          ctx.fillStyle = d.accent;
+          ctx.font = 'bold 52px ' + d.cellFont;
+          ctx.textAlign = 'left';
+          ctx.fillText((idx + 1) + '.', 100, y + 84);
+          ctx.fillStyle = d.cellText;
+          ctx.font = '54px ' + d.cellFont;
+          wrapLines(ctx, it.sentence, W - 320).forEach(function (ln, li) {
+            ctx.fillText(ln, 210, y + 84 + li * 66);
+          });
+          var bw3 = (W - 240) / 3;
+          it.options.forEach(function (o, oi) {
+            var cx = 120 + bw3 * oi + bw3 / 2;
+            ctx.strokeStyle = d.cellBorder; ctx.lineWidth = 4;
+            roundRect(ctx, 120 + bw3 * oi + 10, y + 150, bw3 - 20, 160, 16); ctx.stroke();
+            drawPic(o.e, cx, y + 232, 110);
+          });
+          y += 360;
+        } else if (it.type === 'builder') {
+          ctx.strokeStyle = d.cellBorder; ctx.lineWidth = 5;
+          roundRect(ctx, 60, y, W - 120, 330, 20); ctx.stroke();
+          drawPic(it.pic.e, 190, y + 165, 130);
+          ctx.fillStyle = d.accent;
+          ctx.font = 'bold 52px ' + d.cellFont;
+          ctx.textAlign = 'left';
+          ctx.fillText((idx + 1) + '.', 330, y + 100);
+          ctx.fillStyle = d.cellText;
+          ctx.font = '54px ' + d.cellFont;
+          wrapLines(ctx, it.blanked, W - 560).forEach(function (ln, li) {
+            ctx.fillText(ln, 430, y + 100 + li * 66);
+          });
+          ctx.font = '46px ' + d.cellFont;
+          ctx.fillText(it.choices.join('      '), 330, y + 268);
+          y += 360;
+        } else {
+          ctx.fillStyle = d.cellText;
+          ctx.font = '52px ' + d.cellFont;
+          ctx.textAlign = 'left';
+          wrapLines(ctx, (idx + 1) + '. ' + (it.sentence || it.passage || ''), W - 200)
+            .forEach(function (ln, li) { ctx.fillText(ln, 100, y + 70 + li * 64); });
+          y += 200;
+        }
+      });
+      ctx.fillStyle = d.cellText;
+      ctx.font = '36px ' + d.cellFont;
+      ctx.textAlign = 'left';
+      ctx.fillText(opts.business || 'Songlap Deals', 60, H - 60);
+      ctx.textAlign = 'right';
+      ctx.fillText(draft.id + ' · ' + draft.levelName, W - 60, H - 60);
+      downloadCanvas(canvas, 'phonicsstrip-sample-page-' + draft.id + '.png');
+    });
+  }
+
   /* ================= wrap cover ================= */
 
   function updateWrapDims() {
@@ -886,7 +1582,37 @@ if (typeof module !== 'undefined' && module.exports) {
     $('wrap-dims').textContent = 'Spine width: ' + dims.spineIn.toFixed(3) + ' in · Full wrap size: ' +
       dims.totalWidthIn.toFixed(3) + ' in × ' + dims.totalHeightIn.toFixed(2) +
       ' in (0.125 in bleed included on every side).';
+    wrapCheck();
     return dims;
+  }
+
+  /* KDP paperbacks need at least 24 interior pages. Say so
+     in plain words, right where the buyer is working —
+     never a silent dead-end (the old builder simply did
+     nothing under 24 pages, and its stylesheet used to
+     break the whole studio layout). Returns true when the
+     count is usable. */
+  function wrapCheck() {
+    var pages = parseInt($('wrap-pages').value, 10);
+    var msg = $('wrap-msg');
+    if (!isFinite(pages) || pages < 1) {
+      msg.textContent = 'Please type your book’s page count (a whole number).';
+      msg.classList.remove('info');
+      msg.hidden = false;
+      return false;
+    }
+    if (pages < 24) {
+      msg.textContent = 'KDP paperbacks need at least 24 interior pages — this count is ' + pages +
+        '. Build a bigger book first (add more activity items on the Build tab, or raise the counts), ' +
+        'then come back here: the Wrap Builder will pick the new page count up automatically.';
+      msg.classList.remove('info');
+      msg.hidden = false;
+      return false;
+    }
+    msg.textContent = 'Good — ' + pages + ' pages meets the KDP 24-page minimum. Preview the wrap when you are ready.';
+    msg.classList.add('info');
+    msg.hidden = false;
+    return true;
   }
 
   function wrapMeta() {
@@ -904,6 +1630,13 @@ if (typeof module !== 'undefined' && module.exports) {
   }
 
   function doWrapPreview() {
+    if (!wrapCheck()) {
+      $('wrap-preview').innerHTML = '';
+      wrapBuilt = null;
+      $('wrap-print-btn').disabled = true;
+      $('wrap-msg').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      return;
+    }
     var dims = updateWrapDims();
     var design = D.phsDesignById($('design-select').value);
     var meta = wrapMeta();
@@ -916,15 +1649,128 @@ if (typeof module !== 'undefined' && module.exports) {
 
   function doWrapPrint() {
     if (!wrapBuilt) return;
-    var w = window.open('', '_blank');
-    if (!w) { alert('Please allow pop-ups for this site so the print view can open.'); return; }
-    w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Wrap cover — ' +
-      escapeHtml(wrapBuilt.meta.title) + '</title><style>' +
-      BK.wrapCoverCss(wrapBuilt.design, wrapBuilt.dims) + '</style></head><body>' +
-      BK.wrapCoverHtml(wrapBuilt.meta, wrapBuilt.design, wrapBuilt.dims, wrapBuilt.pack) + '</body></html>');
-    w.document.close();
-    w.focus();
-    setTimeout(function () { w.print(); }, 350);
+    printDocument(
+      BK.wrapCoverHtml(wrapBuilt.meta, wrapBuilt.design, wrapBuilt.dims, wrapBuilt.pack),
+      BK.wrapCoverCss(wrapBuilt.design, wrapBuilt.dims), 'wrap');
+  }
+
+  /* ================= print check ================= */
+
+  /* The live Print-Check panel: page count vs the KDP
+     24-page minimum, trim/paper/spine summary, the
+     sentence-supply meter, and any shortfall where a level
+     ran out of unique sentences for an activity. */
+  function updatePrintCheck() {
+    var body = $('pc-body');
+    if (!body) return;
+    if (!draft) { body.innerHTML = '<p class="hint">Build a draft first — the checks appear here.</p>'; return; }
+    var opts = readBookOpts();
+    var pages = builtBook ? builtBook.book.pageCount : BK.estimatePageCount(draft, opts);
+    var est = !builtBook;
+    var paper = $('wrap-paper').value;
+    var dims = BK.wrapCoverDims(pages, paper, opts.trim === '8.5x10' ? '8.5x10' : '8.5x11');
+    var rows = '';
+    rows += '<div class="pc-row ' + (pages >= 24 ? 'pc-ok' : 'pc-warn') + '"><span class="pc-ic">' +
+      (pages >= 24 ? '✓' : '!') + '</span><span><b>' + pages + ' pages</b>' + (est ? ' (estimate — Build gives the exact count)' : '') +
+      (pages >= 24
+        ? ' — meets the KDP paperback minimum of 24 pages.'
+        : ' — KDP paperbacks need at least 24 pages. Add ' + (24 - pages) + ' more: raise the activity counts on the Build tab.') +
+      '</span></div>';
+    var T = BK.TRIMS[opts.trim] || BK.TRIMS.letter;
+    rows += '<div class="pc-row pc-info"><span class="pc-ic">i</span><span>Trim <b>' + T.label + '</b> · wrap paper <b>' +
+      (paper === 'cream' ? 'Cream' : 'White') + '</b> · spine at this count <b>' + dims.spineIn.toFixed(3) + ' in</b> · full wrap ' +
+      dims.totalWidthIn.toFixed(2) + ' × ' + dims.totalHeightIn.toFixed(2) + ' in.</span></div>';
+    /* sentence supply: unique sentences used vs the level's
+       unique-sentence space (templates × target nouns is a
+       fair proxy for the pair space the engine draws from) */
+    var cum = C.phsCumulative(draft.level);
+    var usedKeys = {};
+    var usedCount = 0;
+    draft.sections.forEach(function (s) {
+      s.items.forEach(function (it) {
+        if (it.sentence) {
+          var k = E.normalizeSentenceKey(it.sentence);
+          if (!usedKeys[k]) { usedKeys[k] = true; usedCount++; }
+        }
+      });
+    });
+    var pairSpace = cum.templates.length * Math.max(1, cum.nouns.length);
+    var pct = Math.min(100, Math.round(100 * usedCount / Math.max(1, pairSpace)));
+    rows += '<div class="pc-row pc-info"><span class="pc-ic">i</span><span style="flex:1">Sentence supply: <b>' + usedCount +
+      ' unique sentences</b> in this book, drawn from a level bank of ' + cum.nouns.length + ' reading words and ' +
+      cum.templates.length + ' sentence patterns — no sentence repeats inside the book.' +
+      '<span class="pc-meter"><i style="width:' + pct + '%"></i></span></span></div>';
+    /* shortfalls: an activity that delivered fewer items
+       than requested means the level's supply ran dry */
+    var settings = readBuildSettings();
+    settings.activities.forEach(function (a) {
+      var sec = null;
+      draft.sections.forEach(function (s) { if (s.activity.id === a.id) sec = s; });
+      var got = sec ? sec.items.length : 0;
+      if (got < a.count) {
+        rows += '<div class="pc-row pc-warn"><span class="pc-ic">!</span><span><b>' +
+          escapeHtml(C.phsActivityById(a.id).name) + ':</b> you asked for ' + a.count + ' items but this level only has ' +
+          got + ' unique ones left — the book uses ' + got + '. Lower the count or add your own sentences.</span></div>';
+      }
+    });
+    rows += '<div class="pc-row pc-ok"><span class="pc-ic">✓</span><span>Answer keys are drawn from the printed pages themselves — they always match.</span></div>';
+    body.innerHTML = rows;
+  }
+
+  /* ================= auto-save ================= */
+
+  function scheduleAutosave() {
+    if (autosaveTimer) clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(saveLastState, 1200);
+  }
+
+  /* The restore point: full studio state (settings + draft
+     with edits) in localStorage, refreshed on every change
+     and every build. Reopening the studio restores it. */
+  function saveLastState() {
+    try {
+      if (!draft && !buildDirty) return;
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(readState()));
+      var note = $('saved-note');
+      if (note) note.textContent = 'Auto-saved ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    } catch (e) { /* storage full/blocked — projects still work */ }
+  }
+
+  function loadLastState() {
+    try {
+      var raw = localStorage.getItem(AUTOSAVE_KEY);
+      if (!raw) return null;
+      var st = JSON.parse(raw);
+      return (st && typeof st === 'object') ? st : null;
+    } catch (e) { return null; }
+  }
+
+  /* Every successful build also lands in My Books as an
+     "Auto —" project (the previous auto entry is replaced,
+     so the list never floods). */
+  function autoSaveProject(name) {
+    if (!draft) return;
+    var list = loadProjects().filter(function (p) { return !p.auto; });
+    list.unshift({ name: name, savedAt: new Date().toLocaleString(), auto: true, state: readState() });
+    saveProjects(list.slice(0, 24));
+    renderProjects();
+  }
+
+  function startFresh() {
+    try { localStorage.removeItem(AUTOSAVE_KEY); } catch (e) { /* ignore */ }
+    $('restore-bar').hidden = true;
+    seedVariant = 1;
+    themeFilter = 'all';
+    applyState({
+      level: 1, title: 'My First Reading Book', childName: '', pack: 'storybook',
+      activities: null, customText: '', customPics: {}, customWords: [],
+      picRotation: { last: {}, nonce: 0, sbNext: 'storybook' }, seedVariant: 1,
+      draft: null, designId: 'bohorainbow', trim: 'letter', business: 'Songlap Deals',
+      cover: true, backCover: true, inkSaver: false, bw: false,
+      theme: 'all', density: 'comfortable', rowStyle: 'cards', markStyle: 'circle'
+    });
+    generateDraft();
+    switchTab('build');
   }
 
   /* ================= projects ================= */
@@ -961,7 +1807,10 @@ if (typeof module !== 'undefined' && module.exports) {
       trim: $('trim-select').value,
       business: $('in-business').value,
       cover: $('cover-on').checked, backCover: $('backcover-on').checked,
-      inkSaver: $('inksaver-on').checked, bw: $('bw-on').checked
+      inkSaver: $('inksaver-on').checked, bw: $('bw-on').checked,
+      theme: themeFilter,
+      density: $('density-select').value, rowStyle: $('rowstyle-select').value,
+      markStyle: $('markstyle-select').value
     };
   }
 
@@ -983,7 +1832,11 @@ if (typeof module !== 'undefined' && module.exports) {
     updatePackChrome();
     seedVariant = st.seedVariant || 1;
     renderActivities(st.activities);
+    themeFilter = st.theme || 'all';
+    renderThemeChips();
     updateLevelChrome();
+    renderLevelCards();
+    renderPackCards();
     $('design-select').value = st.designId || 'bohorainbow';
     $('trim-select').value = st.trim || 'letter';
     $('in-business').value = st.business || 'Songlap Deals';
@@ -991,24 +1844,36 @@ if (typeof module !== 'undefined' && module.exports) {
     $('backcover-on').checked = st.backCover !== false;
     $('inksaver-on').checked = !!st.inkSaver;
     $('bw-on').checked = !!st.bw;
+    $('density-select').value = st.density || 'comfortable';
+    $('rowstyle-select').value = st.rowStyle || 'cards';
+    $('markstyle-select').value = st.markStyle || 'circle';
     updateDesignChrome();
     draft = st.draft || null;
     buildDirty = !draft;
-    if (draft) renderEditor();
+    if (draft) { renderEditor(); updateThemeNote(); }
     builtBook = null;
+    currentPrint = null;
+    seriesDoc = null;
+    $('series-print-btn').disabled = true;
     $('print-btn').disabled = true;
     $('png-btn').disabled = true;
     $('book-preview').innerHTML = '';
+    $('pv-bar').hidden = true;
+    updatePrintCheck();
   }
 
   function renderProjects() {
     var list = loadProjects();
     var box = $('projects-list');
-    box.innerHTML = list.length ? '' : '<p class="hint">No saved projects yet.</p>';
+    box.innerHTML = list.length ? '' :
+      '<div class="empty-state"><b>No saved workbooks yet</b>' +
+      'Build your first book on the Book &amp; cover tab — it will be auto-saved here, ' +
+      'and you can also save named projects with the button above.</div>';
     list.forEach(function (p, idx) {
       var row = document.createElement('div');
       row.className = 'project-row';
       row.innerHTML = '<span class="p-name">' + escapeHtml(p.name) + '</span>' +
+        (p.auto ? '<span class="p-auto">Auto-saved</span>' : '') +
         '<span class="p-meta">' + escapeHtml(p.savedAt) + '</span>';
       var load = document.createElement('button');
       load.className = 'btn btn-ghost btn-small'; load.textContent = 'Load';
@@ -1057,7 +1922,7 @@ if (typeof module !== 'undefined' && module.exports) {
     document.querySelectorAll('.tab-btn').forEach(function (b) {
       b.addEventListener('click', function () { switchTab(b.dataset.tab); });
     });
-    lvSel.addEventListener('change', function () { updateLevelChrome(); populateWordSelect(); markDirty(); });
+    lvSel.addEventListener('change', function () { updateLevelChrome(); populateWordSelect(); renderThemeChips(); markDirty(); });
     $('in-title').addEventListener('change', markDirty);
     $('in-child').addEventListener('change', markDirty);
     $('custom-text').addEventListener('change', markDirty);
@@ -1071,13 +1936,14 @@ if (typeof module !== 'undefined' && module.exports) {
       updateLevelChrome();
       generateDraft('All items regenerated (set #' + seedVariant + ').');
     });
-    dSel.addEventListener('change', updateDesignChrome);
+    dSel.addEventListener('change', function () { updateDesignChrome(); updatePrintCheck(); scheduleAutosave(); });
     $('build-btn').addEventListener('click', doBuild);
     $('print-btn').addEventListener('click', doPrint);
     $('png-btn').addEventListener('click', doPng);
     ['wrap-pages', 'wrap-paper', 'wrap-trim'].forEach(function (id) {
       $(id).addEventListener('change', updateWrapDims);
     });
+    $('wrap-paper').addEventListener('change', updatePrintCheck);
     $('wrap-preview-btn').addEventListener('click', doWrapPreview);
     $('wrap-print-btn').addEventListener('click', doWrapPrint);
     $('project-save').addEventListener('click', function () {
@@ -1089,13 +1955,87 @@ if (typeof module !== 'undefined' && module.exports) {
       renderProjects();
     });
 
+    /* book-option changes refresh the Print-Check panel */
+    $('trim-select').addEventListener('change', function () { updatePrintCheck(); scheduleAutosave(); });
+    ['density-select', 'rowstyle-select', 'markstyle-select'].forEach(function (id) {
+      $(id).addEventListener('change', function () { updatePrintCheck(); scheduleAutosave(); });
+    });
+    ['cover-on', 'backcover-on', 'inksaver-on', 'bw-on'].forEach(function (id) {
+      $(id).addEventListener('change', function () { updatePrintCheck(); scheduleAutosave(); });
+    });
+    $('in-business').addEventListener('change', scheduleAutosave);
+
+    /* paginated preview controls */
+    $('pv-prev').addEventListener('click', function () {
+      var per = $('book-preview').dataset.mode === 'spread' ? 2 : 1;
+      preview.page = Math.max(0, preview.page - per);
+      applyPreview();
+    });
+    $('pv-next').addEventListener('click', function () {
+      var per = $('book-preview').dataset.mode === 'spread' ? 2 : 1;
+      preview.page = Math.min(Math.max(0, preview.pages.length - per), preview.page + per);
+      applyPreview();
+    });
+    $('pv-zoom').addEventListener('change', layoutPreviewScale);
+    $('pv-mode').addEventListener('change', function () {
+      var box = $('book-preview');
+      box.dataset.mode = $('pv-mode').value;
+      if (box.dataset.mode === 'spread' && window.innerWidth < 1025) {
+        /* spreads need room: on smaller screens the two
+           pages simply stack at fit width */
+      }
+      preview.page = Math.max(0, Math.min(preview.page, preview.pages.length - 1));
+      applyPreview();
+    });
+    window.addEventListener('resize', layoutPreviewScale);
+
+    /* print check -> wrap builder one-click sync */
+    $('pc-sync-btn').addEventListener('click', function () {
+      if (!draft) return;
+      var pages = builtBook ? builtBook.book.pageCount : BK.estimatePageCount(draft, readBookOpts());
+      $('wrap-pages').value = pages;
+      updateWrapDims();
+      $('wrap-msg').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+
+    /* series builder + listing kit + phone action bar */
+    $('series-build-btn').addEventListener('click', buildSeries);
+    $('series-print-btn').addEventListener('click', function () {
+      if (seriesDoc) printDocument(seriesDoc.html, seriesDoc.css, 'book');
+    });
+    document.querySelectorAll('.lk-copy').forEach(function (btn) {
+      btn.addEventListener('click', function () { copyListingText(btn.dataset.copy, btn); });
+    });
+    $('lk-backpng-btn').addEventListener('click', doBackPng);
+    $('lk-samplepng-btn').addEventListener('click', doSamplePng);
+    $('m-build-btn').addEventListener('click', doBuild);
+    $('m-print-btn').addEventListener('click', doPrint);
+    $('m-png-btn').addEventListener('click', doPng);
+    $('pm-cancel').addEventListener('click', function () { pmCancelled = true; });
+    $('start-fresh-btn').addEventListener('click', startFresh);
+
     renderActivities(null);
+    renderLevelCards();
+    renderPackCards();
+    renderThemeChips();
+    buildSeriesChips();
+    initCollapsibles();
     updateLevelChrome();
     updatePackChrome();
     initCustomPictures();
     updateDesignChrome();
     updateWrapDims();
-    generateDraft();
+    document.body.dataset.tab = 'build';
+    /* restore the last state (auto-save) instead of
+       resetting to Level 1 defaults on every visit */
+    var last = loadLastState();
+    if (last && last.draft) {
+      applyState(last);
+      $('restore-bar').hidden = false;
+      $('build-status').textContent = 'Your last book was restored — press Build my book on the Book & cover tab to rebuild it, or just keep editing.';
+    } else {
+      generateDraft();
+    }
     renderProjects();
   }
 
