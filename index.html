@@ -30,7 +30,7 @@
 <!-- ================= app ================= -->
 <div id="app" hidden>
   <div id="license-bar" class="license-bar" hidden>
-    Licensed to <span id="license-name"></span> · <span id="license-code"></span> · Commercial licence included for the books you create
+    Licensed to <span id="license-name"></span> · <span id="license-code"></span> · You may sell the books you create with this tool
   </div>
   <header class="site-header">
     <div class="header-inner">
@@ -38,7 +38,7 @@
         <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span>
         <div>
           <h1>PhonicsStrip Studio Pro</h1>
-          <p>Pick a phonics level, choose the activities — print a complete, truly decodable reading book.</p>
+          <p>Pick a reading level, choose the activities — print a complete first reading book a beginner can sound out, word by word.</p>
         </div>
       </div>
       <div class="saved-note" id="saved-note" title="Your work is auto-saved on this device">Auto-save on</div>
@@ -47,7 +47,7 @@
 
   <nav class="tabbar wrap">
     <button class="tab-btn on" data-tab="build"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg><span class="tab-label">Build</span><span class="tab-step">Step 1</span></button>
-    <button class="tab-btn" data-tab="content"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg><span class="tab-label">Content editor</span><span class="tab-step">Step 2</span></button>
+    <button class="tab-btn" data-tab="content"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg><span class="tab-label">Check the pages</span><span class="tab-step">Step 2</span></button>
     <button class="tab-btn" data-tab="book"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg><span class="tab-label">Book &amp; cover</span><span class="tab-step">Step 3</span></button>
     <button class="tab-btn" data-tab="books"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg><span class="tab-label">My Books</span><span class="tab-step">Step 4</span></button>
   </nav>
@@ -61,8 +61,22 @@
 
     <!-- ============ TAB: BUILD ============ -->
     <div id="tab-build" class="tabpane">
+      <section class="panel panel-quick">
+        <h2>Make your book — the easy way</h2>
+        <p class="panel-help">New here? Making a book takes just three steps — and everything is already set up for a good first book, so you can simply follow them in order.</p>
+        <ol class="steps-guide">
+          <li><span class="sn">1</span><span><b>Pick a level</b> — how hard the reading is. Level 1 is for beginners, and it is already picked for you below.</span></li>
+          <li><span class="sn">2</span><span><b>Pick activities</b> — the games and practice pages inside the book. The ones already ticked make a great first book.</span></li>
+          <li><span class="sn">3</span><span><b>Press Generate</b> — go to the “Book &amp; cover” tab (Step 3 at the top) and press the big orange “Generate my book” button. Your book appears, ready to print.</span></li>
+        </ol>
+        <p class="quick-or">— IN A HURRY? SKIP ALL OF IT —</p>
+        <button id="quick-book-btn" class="btn btn-cta btn-big" type="button">⚡ Quick book — make one for me</button>
+        <p class="hint" style="margin-top:8px">One press: we pick Level 1, the favourite activities and the standard book size, and make the book for you. You can change anything and make it again afterwards.</p>
+      </section>
+
       <section class="panel">
-        <h2>Reading level</h2>
+        <h2>Step 1 — Pick a level</h2>
+        <p class="panel-help">Pick how hard the reading is. Level 1 is for beginners — start there if you are not sure. Every level keeps the sounds from the levels before it, so children build up step by step.</p>
         <select id="level-select" class="visually-hidden" aria-hidden="true" tabindex="-1"></select>
         <div class="level-cards" id="level-cards"></div>
         <p class="hint" id="level-info"></p>
@@ -70,7 +84,8 @@
       </section>
 
       <section class="panel">
-        <h2>Book details</h2>
+        <h2>Name your book</h2>
+        <p class="panel-help">Give your book a title. Add a child’s name and it prints on the cover and on the finishing certificate inside.</p>
         <div class="row">
           <label class="field grow">Book title
             <input id="in-title" type="text" value="My First Reading Book">
@@ -80,27 +95,27 @@
           </label>
         </div>
         <div class="row">
-          <button id="newset-btn" class="btn btn-ghost" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg> New set of sentences</button>
+          <button id="newset-btn" class="btn btn-ghost" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg> Give me different sentences</button>
           <span class="hint" id="seed-note"></span>
         </div>
       </section>
 
       <section class="panel">
-        <h2>Picture pack</h2>
-        <p class="hint">Choose how the words are drawn. The words, sentences and reading level never change — only the pictures, plus the cover decorations and tracker symbols. Make each book in a series look fresh with a different pack.</p>
+        <h2>Picture style</h2>
+        <p class="panel-help">Pick how the pictures look. The words, sentences and reading level never change — only the pictures. A different style makes each new book look fresh.</p>
         <select id="pack-select" class="visually-hidden" aria-hidden="true" tabindex="-1"></select>
         <div class="pack-cards" id="pack-cards"></div>
         <p class="hint" id="pack-blurb"></p>
         <div class="pack-preview" id="pack-preview"></div>
         <div class="row" style="margin-top:10px">
           <button id="shuffle-pics-btn" class="btn btn-ghost btn-small" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="m4 4 5 5"/></svg> Shuffle pictures</button>
-          <span class="hint">With the Storybook and Illustrated packs, every new book already rotates to a different picture for each word — shuffle forces a fresh mix right now.</span>
+          <span class="hint">Every new book already picks a fresh mix of pictures by itself — shuffle only forces a new mix right now.</span>
         </div>
       </section>
 
-      <section class="panel" data-collapsible>
-        <h2>Your own pictures</h2>
-        <p class="hint">Make the books truly yours: give any reading word <b>your own picture</b> — a photo of your pet, your classroom, your shop mascot. Your picture replaces the word’s picture everywhere in the book (reading strips, comprehension scenes, stories), in every picture pack. Pictures are kept in this browser, inside your saved projects.</p>
+      <section class="panel panel-ownpics" data-collapsible data-start-closed>
+        <h2>Advanced — your own pictures &amp; words</h2>
+        <p class="panel-help">Optional, for later: give any reading word <b>your own picture</b> — a photo of your pet, your classroom, your shop mascot. Your picture is then used everywhere that word appears in the book. Pictures are kept in this browser, inside your saved projects. You do not need any of this to make a great book.</p>
         <div class="row">
           <label class="field grow">Reading word
             <select id="cp-word"></select>
@@ -115,7 +130,7 @@
         <p class="hint" id="cp-status"></p>
         <div id="cp-list" class="cp-list"></div>
         <h3 class="cp-sub">Add your own word <span class="opt">(up to 3 — with its own picture)</span></h3>
-        <p class="hint">Your word joins this level’s reading words, so it can appear in sentences and strips like any other word. To keep the decodable promise, the word must only use the sounds taught up to this level — if it doesn’t fit, we’ll tell you and it won’t be added.</p>
+        <p class="hint">Your word can appear in sentences like any other word. It must only use the sounds taught up to this level, so beginners can still sound it out — if it doesn’t fit, we’ll tell you and it won’t be added.</p>
         <div class="row">
           <label class="field">Word
             <input id="cw-word" type="text" placeholder="e.g. wig" autocomplete="off">
@@ -135,17 +150,17 @@
       </section>
 
       <section class="panel">
-        <h2>Activities</h2>
-        <p class="hint">Tick the activities to include and set how many items each one gets. Every sentence is checked against the level — only this level’s sounds and focus words are used. The three pictures on each strip always come from the same group, so children must read, not guess.</p>
-        <h3 class="sub-head">Word theme <span class="opt">(optional — lean the book’s words toward one theme)</span></h3>
+        <h2>Step 2 — Pick activities</h2>
+        <p class="panel-help">Tick the games and practice pages to put inside the book, and say how many of each. The numbers already filled in make a great first book — you can leave them exactly as they are. Every sentence uses only this level’s sounds, so a beginner can read every word.</p>
+        <h3 class="sub-head">Word theme <span class="opt">(optional — make most words about one topic, like animals or food)</span></h3>
         <div class="theme-chips" id="theme-chips"></div>
         <p class="hint" id="theme-note"></p>
         <div id="activities-list"></div>
       </section>
 
-      <section class="panel" data-collapsible>
-        <h2>Your own sentences</h2>
-        <p class="hint">Optional: type your own sentences, one per line (up to 150). Add <b>| emoji</b> after a sentence to choose its picture — the two near-miss pictures are picked automatically from the same group. Without an emoji, the first reading word found in the sentence becomes the picture. Sentences whose picture cannot be matched become Read &amp; Draw pages.</p>
+      <section class="panel panel-ownsent" data-collapsible data-start-closed>
+        <h2>Advanced — your own sentences</h2>
+        <p class="panel-help">Optional, for later: type your own sentences, one per line (up to 150). Add <b>|</b> and an emoji after a sentence to choose its picture — for example “The cat is on the roof. | 🐱”. The two spare pictures are picked for you, from the same group. Without an emoji, the first reading word in the sentence becomes the picture. A sentence whose picture can’t be matched becomes a Read &amp; Draw page instead.</p>
         <textarea id="custom-text" class="big-text" placeholder="The cat is on the roof. | 🐱&#10;My dog can run fast."></textarea>
       </section>
     </div>
@@ -153,10 +168,10 @@
     <!-- ============ TAB: CONTENT ============ -->
     <div id="tab-content" class="tabpane" hidden>
       <section class="panel">
-        <h2>Content editor</h2>
-        <p class="hint">Every generated item can be changed here: rewrite any sentence, and for picture strips pick a different picture — the near-miss pictures update to stay in the same group. Answer keys are rebuilt from exactly what is shown here, so they can never disagree with the book.</p>
+        <h2>Check &amp; edit the pages</h2>
+        <p class="panel-help">Want to change something? Rewrite any sentence here, or pick a different picture — the two spare pictures update to stay in the same group (all animals, all food…). The answer key is made from exactly what you see here, so it always matches the book. Nothing to change? Just go on to Step 3.</p>
         <div class="row">
-          <button id="regen-btn" class="btn btn-ghost" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg> Regenerate all items (new sentences)</button>
+          <button id="regen-btn" class="btn btn-ghost" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg> Start again with new sentences</button>
           <span class="hint" id="editor-status"></span>
         </div>
         <div id="editor-list"></div>
@@ -166,9 +181,10 @@
     <!-- ============ TAB: BOOK ============ -->
     <div id="tab-book" class="tabpane" hidden>
       <section class="panel panel-design">
-        <h2>Design &amp; print settings</h2>
+        <h2>Cover design &amp; book size</h2>
+        <p class="panel-help">Pick a cover design and the page size for your book. Everything here is already set the way most people like it — you can simply leave it all as it is.</p>
         <div class="row">
-          <label class="field grow">Design theme <span class="opt">(applies to the whole book — pick a cover card)</span>
+          <label class="field grow">Cover design <span class="opt">(for the whole book — pick a card below)</span>
             <select id="design-select" class="visually-hidden" aria-hidden="true" tabindex="-1"></select>
           </label>
           <div class="swatches" id="design-swatches"></div>
@@ -176,64 +192,72 @@
         <div class="design-cards" id="design-cards"></div>
         <p class="hint" id="design-blurb"></p>
         <div class="row">
-          <label class="field">Book size (trim)
+          <label class="field">Book size (page size)
             <select id="trim-select">
-              <option value="letter">US Letter 8.5×11</option>
+              <option value="letter">US Letter (8.5 × 11 in)</option>
               <option value="a4">A4</option>
-              <option value="8.5x10">8.5×10 (KDP kids’ size)</option>
+              <option value="8.5x10">8.5 × 10 in (the usual Amazon KDP kids’ size)</option>
             </select>
           </label>
           <label class="field">Your business / brand <span class="opt">(prints on the book)</span>
             <input id="in-business" type="text" value="Songlap Deals">
           </label>
         </div>
-        <div class="row">
-          <label class="field">Strip density
-            <select id="density-select">
-              <option value="comfortable">Comfortable — roomy strips</option>
-              <option value="compact">Compact — more strips per page</option>
-            </select>
-          </label>
-          <label class="field">Row style
-            <select id="rowstyle-select">
-              <option value="cards">Cards — boxed strips</option>
-              <option value="lines">Lines — ruled rows, no boxes</option>
-              <option value="cut">Cut-apart — dashed cards to cut out</option>
-            </select>
-          </label>
-          <label class="field">Answer mark
-            <select id="markstyle-select">
-              <option value="circle">Circle the picture</option>
-              <option value="bubble">Fill the bubble</option>
-            </select>
-          </label>
-        </div>
         <div class="row checks">
-          <label class="check"><input type="checkbox" id="cover-on" checked> Designed front cover</label>
-          <label class="check"><input type="checkbox" id="backcover-on" checked> Designed back cover</label>
-          <label class="check"><input type="checkbox" id="inksaver-on"> Ink-saver printing</label>
+          <label class="check"><input type="checkbox" id="cover-on" checked> Front cover page</label>
+          <label class="check"><input type="checkbox" id="backcover-on" checked> Back cover page</label>
+          <label class="check"><input type="checkbox" id="inksaver-on"> Ink-saver (lighter colours, uses less ink)</label>
           <label class="check"><input type="checkbox" id="bw-on"> Black &amp; white pictures</label>
         </div>
-        <p class="hint">Storybook pictures are our own original illustrations, created for this tool. Illustrated-pack artwork (also the Storybook fallback): Noto Emoji (Apache License 2.0, Google) · Twemoji (CC BY 4.0, Twitter) · Fluent Emoji (MIT, Microsoft). The matching credit prints in small print on the back cover of Storybook and Illustrated books.</p>
+        <p class="hint">The Storybook pictures are our own illustrations, made for this tool. Some picture styles use open-source emoji art (Noto Emoji, Twemoji, Fluent Emoji) — the credit line prints in small print on the back cover.</p>
+        <div class="adv" data-collapsible-sub>
+          <button type="button" class="adv-toggle" aria-expanded="false"><span>Advanced options — strip size, row style, how answers are marked</span><span class="adv-chev" aria-hidden="true">▾</span></button>
+          <div class="adv-body" hidden>
+            <p class="hint" style="margin-bottom:10px">Fine-tuning for the printed pages. The starting choices suit almost every book — change them only if you want a different look.</p>
+            <div class="row">
+              <label class="field">Strip size
+                <select id="density-select">
+                  <option value="comfortable">Roomy — fewer, bigger strips</option>
+                  <option value="compact">Packed — more strips on each page</option>
+                </select>
+              </label>
+              <label class="field">Row style
+                <select id="rowstyle-select">
+                  <option value="cards">Cards — boxed strips</option>
+                  <option value="lines">Lines — ruled rows, no boxes</option>
+                  <option value="cut">Cut-apart — dashed cards to cut out</option>
+                </select>
+              </label>
+              <label class="field">How children mark answers
+                <select id="markstyle-select">
+                  <option value="circle">Circle the picture</option>
+                  <option value="bubble">Fill in a bubble</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section class="panel panel-printcheck">
         <h2><svg class="h-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg> Print check</h2>
+        <p class="panel-help">A quick check that your book is ready to print — and big enough for an Amazon KDP paperback (those need 24 pages or more).</p>
         <div id="pc-body"><p class="hint">Checking your book…</p></div>
         <div class="row">
-          <button id="pc-sync-btn" class="btn btn-ghost btn-small" type="button">Use this page count in the Wrap Builder</button>
+          <button id="pc-sync-btn" class="btn btn-ghost btn-small" type="button">Send this page count to the KDP cover maker below</button>
         </div>
       </section>
 
       <section class="panel panel-build">
-        <h2>Generate your book</h2>
+        <h2>Step 3 — Generate your book</h2>
+        <p class="panel-help">Press the big orange button — your book appears below, ready to look through and print.</p>
         <div class="row">
           <button id="build-btn" class="btn btn-cta btn-big" type="button">Generate my book</button>
         </div>
         <p id="build-status" class="hint"></p>
         <div class="row">
           <button id="print-btn" class="btn btn-teal" type="button" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print / Save PDF</button>
-          <button id="png-btn" class="btn btn-teal" type="button" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg> Download front cover PNG</button>
+          <button id="png-btn" class="btn btn-teal" type="button" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg> Download front cover picture (PNG)</button>
         </div>
         <div class="pv-bar" id="pv-bar" hidden>
           <div class="pv-group">
@@ -264,9 +288,9 @@
         <div id="book-preview" class="book-preview"></div>
       </section>
 
-      <section class="panel panel-series">
-        <h2><svg class="h-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 10 5-10 5L2 7l10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg> Series Builder</h2>
-        <p class="hint">Build a whole set of level books at once — one combined PDF with a series contents page, ready to print or upload. Every book uses your current title, name, picture pack and activity choices; the cover design rotates through all six designs so each book looks fresh, and every book is also saved on its own in My Books.</p>
+      <section class="panel panel-series" data-collapsible data-start-closed>
+        <h2><svg class="h-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 10 5-10 5L2 7l10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg> Pro — Series Builder (many books at once)</h2>
+        <p class="panel-help">For making a whole set: build several level books in one go — one file with all the books plus a contents page, ready to print or upload. Every book uses your title, name, picture style and activity choices from above, with a different cover design each time, and each book is also saved on its own in My Books.</p>
         <div class="row">
           <label class="field grow">Series title
             <input id="series-title" type="text" value="My First Reading Series">
@@ -281,23 +305,23 @@
         <p class="hint" id="series-status"></p>
       </section>
 
-      <section class="panel panel-listing">
-        <h2><svg class="h-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.3 9.3a1 1 0 0 0 1.4 0l8.6-8.6a1 1 0 0 0 0-1.4Z"/><circle cx="7" cy="7" r="1.6"/></svg> Listing Kit</h2>
-        <p class="hint">Selling this book on KDP, Etsy or TpT? This copy is written from your built book’s real facts — its level, page count and activities. No income claims, ever. Generate a book first, then copy what you need.</p>
+      <section class="panel panel-listing" data-collapsible data-start-closed>
+        <h2><svg class="h-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2H2v10l9.3 9.3a1 1 0 0 0 1.4 0l8.6-8.6a1 1 0 0 0 0-1.4Z"/><circle cx="7" cy="7" r="1.6"/></svg> Pro — Listing Kit (words for selling your book)</h2>
+        <p class="panel-help">Selling this book on Amazon KDP, Etsy or TpT? Here is ready-made wording — a title, a description and search words — written from your book’s real facts: its level, page count and activities. No income claims, ever. Generate a book first, then copy what you need.</p>
         <div class="lk-block">
-          <div class="lk-head"><span>KDP title</span><button class="btn btn-ghost btn-small lk-copy" type="button" data-copy="lk-kdp-title">Copy</button></div>
+          <div class="lk-head"><span>Amazon KDP title</span><button class="btn btn-ghost btn-small lk-copy" type="button" data-copy="lk-kdp-title">Copy</button></div>
           <textarea id="lk-kdp-title" class="lk-text" rows="2" readonly></textarea>
         </div>
         <div class="lk-block">
-          <div class="lk-head"><span>KDP subtitle</span><button class="btn btn-ghost btn-small lk-copy" type="button" data-copy="lk-kdp-subtitle">Copy</button></div>
+          <div class="lk-head"><span>Amazon KDP subtitle</span><button class="btn btn-ghost btn-small lk-copy" type="button" data-copy="lk-kdp-subtitle">Copy</button></div>
           <textarea id="lk-kdp-subtitle" class="lk-text" rows="2" readonly></textarea>
         </div>
         <div class="lk-block">
-          <div class="lk-head"><span>KDP description</span><button class="btn btn-ghost btn-small lk-copy" type="button" data-copy="lk-kdp-desc">Copy</button></div>
+          <div class="lk-head"><span>Amazon KDP description</span><button class="btn btn-ghost btn-small lk-copy" type="button" data-copy="lk-kdp-desc">Copy</button></div>
           <textarea id="lk-kdp-desc" class="lk-text" rows="7" readonly></textarea>
         </div>
         <div class="lk-block">
-          <div class="lk-head"><span>KDP backend keywords (7)</span><button class="btn btn-ghost btn-small lk-copy" type="button" data-copy="lk-keywords">Copy</button></div>
+          <div class="lk-head"><span>Amazon search words (7) — paste into KDP’s keyword boxes</span><button class="btn btn-ghost btn-small lk-copy" type="button" data-copy="lk-keywords">Copy</button></div>
           <textarea id="lk-keywords" class="lk-text" rows="3" readonly></textarea>
         </div>
         <div class="lk-block">
@@ -309,15 +333,15 @@
           <textarea id="lk-etsy-desc" class="lk-text" rows="8" readonly></textarea>
         </div>
         <div class="row">
-          <button id="lk-backpng-btn" class="btn btn-teal" type="button" disabled>Download back cover PNG</button>
-          <button id="lk-samplepng-btn" class="btn btn-teal" type="button" disabled>Download sample page PNG</button>
+          <button id="lk-backpng-btn" class="btn btn-teal" type="button" disabled>Download back cover picture (PNG)</button>
+          <button id="lk-samplepng-btn" class="btn btn-teal" type="button" disabled>Download sample page picture (PNG)</button>
         </div>
         <p class="hint" id="lk-note">Generate a book above and your listing copy appears here.</p>
       </section>
 
-      <section class="panel panel-wrap">
-        <h2>KDP Wrap Cover Builder</h2>
-        <p class="hint">For paperback publishing: enter your book’s page count and paper type — the spine width and full wrap size are calculated for you (0.125″ bleed included). Preview the wrap, then print it to PDF at exactly the right size.</p>
+      <section class="panel panel-wrap" data-collapsible data-start-closed>
+        <h2>Pro — KDP cover maker (full paperback cover)</h2>
+        <p class="panel-help">Only for selling a paperback on Amazon KDP. A paperback cover is one big picture — back cover, the folded edge (the “spine”) and front cover together. Type your book’s page count and paper type and we work out the exact size for you. Preview it, then save it as a PDF at exactly the right size.</p>
         <div class="row">
           <label class="field grow">Cover title
             <input id="wrap-title" type="text" value="My First Reading Book">
@@ -330,7 +354,7 @@
           </label>
         </div>
         <div class="row">
-          <label class="field">Interior page count
+          <label class="field">Pages inside the book
             <input id="wrap-pages" type="number" min="1" max="800" value="80">
           </label>
           <label class="field">Paper
@@ -339,7 +363,7 @@
               <option value="cream">Cream paper</option>
             </select>
           </label>
-          <label class="field">Trim size
+          <label class="field">Book size
             <select id="wrap-trim">
               <option value="8.5x11">8.5 × 11 in</option>
               <option value="8.5x10">8.5 × 10 in</option>
@@ -349,8 +373,8 @@
         <p class="hint" id="wrap-dims"></p>
         <p class="wrap-msg" id="wrap-msg" hidden></p>
         <div class="row">
-          <button id="wrap-preview-btn" class="btn btn-gold" type="button">Preview wrap cover</button>
-          <button id="wrap-print-btn" class="btn btn-teal" type="button" disabled>Print wrap / Save PDF</button>
+          <button id="wrap-preview-btn" class="btn btn-gold" type="button">Preview the cover</button>
+          <button id="wrap-print-btn" class="btn btn-teal" type="button" disabled>Save cover as PDF / Print</button>
         </div>
         <div id="wrap-preview" class="wrap-preview"></div>
       </section>
@@ -359,7 +383,8 @@
     <!-- ============ TAB: MY BOOKS ============ -->
     <div id="tab-books" class="tabpane" hidden>
       <section class="panel">
-        <h2>My Books (saved projects)</h2>
+        <h2>My Books — saved on this device</h2>
+        <p class="panel-help">Every book you generate is saved here automatically. Press Load to open one again, or save a named copy with the button below.</p>
         <div class="row">
           <label class="field grow">Project name
             <input id="project-name" type="text" placeholder="e.g. Ava — Level 1 — Boho Rainbow">
@@ -367,17 +392,17 @@
           <button id="project-save" class="btn btn-teal" type="button">Save project</button>
         </div>
         <div id="projects-list"></div>
-        <p class="hint">Projects are saved in this browser only, including your edited items. Your latest built book is also auto-saved — reopening the studio brings it back.</p>
+        <p class="hint">Projects are saved in this browser only, including your edited pages. Your latest book is also kept automatically — reopening the studio brings it back.</p>
       </section>
 
       <section class="panel help" data-collapsible>
         <h2>How it works</h2>
         <ul>
-          <li><strong>Decodable promise:</strong> every generated sentence uses only the chosen level’s phonics patterns plus its Focus Words (sight words). Levels are cumulative — each level keeps all earlier sounds.</li>
-          <li><strong>Near-miss pictures:</strong> the 3 pictures on a strip always come from the same group (all animals, all food…), so the child must read the word, not guess by picture type.</li>
-          <li><strong>Answer keys</strong> are generated from the printed pages themselves — edit any item and the key updates with it.</li>
+          <li><strong>Real reading:</strong> every sentence uses only the sounds taught up to the chosen level, plus a few “learn-by-heart” words. Each level keeps all the sounds from the levels before it.</li>
+          <li><strong>No guessing:</strong> the 3 pictures on a strip always come from the same group (all animals, all food…), so the child must read the word — the pictures can’t give it away.</li>
+          <li><strong>Answer keys</strong> are made from the printed pages themselves — change any page and the key changes with it.</li>
           <li><strong>Selling your books?</strong> Your licence covers selling the finished reading books you create (see the Commercial Use Licence in your download). The tool and your code themselves must never be shared or resold.</li>
-          <li><strong>Print:</strong> use “Print / Save PDF” at 100% scale. For KDP, build the interior here, then make the matching wrap cover in the KDP Wrap Cover Builder.</li>
+          <li><strong>Print:</strong> use “Print / Save PDF” at 100% size. For Amazon KDP, make the book here first, then make its matching cover in the KDP cover maker (Step 3, near the bottom).</li>
         </ul>
       </section>
     </div>
