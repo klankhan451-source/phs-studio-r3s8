@@ -362,8 +362,13 @@ if (typeof module !== 'undefined' && module.exports) {
     var keep = sel.value;
     var cum = C.phsCumulative(currentLevel().id);
     sel.innerHTML = cum.nouns.map(function (n) {
+      /* an <option> cannot show an image: when the pack
+         draws this word as a picture file, label it with
+         the bank emoji instead of the raw file path */
+      var p = E.picFor(C, currentPack().id, n);
+      var label = (isDataUrl(p) || isAssetPath(p)) ? n.e : p;
       return '<option value="' + escapeAttr(n.w) + '">' +
-        escapeHtml(E.picFor(C, currentPack().id, n)) + ' ' + escapeHtml(n.w) +
+        escapeHtml(label) + ' ' + escapeHtml(n.w) +
         (customPics[n.w] ? ' — your picture ✓' : '') + '</option>';
     }).join('');
     if (keep && cum.nouns.some(function (n) { return n.w === keep; })) sel.value = keep;
@@ -597,8 +602,8 @@ if (typeof module !== 'undefined' && module.exports) {
     renderEditor();
     updateThemeNote();
     if (note) $('editor-status').textContent = note;
-    $('build-status').textContent = 'Your pages are ready: ' + draft.sections.reduce(function (a, x) { return a + x.items.length; }, 0) +
-      ' activities written. Press “Generate my book” and your book appears here.';
+    $('build-status').textContent = 'Your choices are ready: ' + draft.sections.reduce(function (a, x) { return a + x.items.length; }, 0) +
+      ' activities picked. No book yet — press “Generate my book” to make the book.';
     updatePrintCheck();
     scheduleAutosave();
   }
@@ -716,7 +721,7 @@ if (typeof module !== 'undefined' && module.exports) {
       var inSentence = E.nounsInSentence(C, draft.level, item.sentence);
       var ansOpts = inSentence.map(function (nn) {
         return '<option value="' + escapeAttr(nn.w) + '"' + (nn.w === item.answer ? ' selected' : '') + '>' +
-          E.picFor(C, draft.pack, nn) + ' ' + escapeHtml(nn.w) + '</option>';
+          picLabel(nn) + ' ' + escapeHtml(nn.w) + '</option>';
       }).join('');
       row.innerHTML = n +
         '<input type="text" class="ed-sentence" value="' + escapeAttr(item.sentence) + '">' +
@@ -748,7 +753,7 @@ if (typeof module !== 'undefined' && module.exports) {
       });
     } else if (item.type === 'seq') {
       var steps = item.correctOrder.map(function (st, sIdx) {
-        return '<div class="ed-pics"><label class="ed-pic" style="flex:1">Step ' + (sIdx + 1) + ' ' + st.pic +
+        return '<div class="ed-pics"><label class="ed-pic" style="flex:1">Step ' + (sIdx + 1) + ' ' + picInline(st.pic) +
           ' <input type="text" class="ed-step" data-s="' + sIdx + '" value="' + escapeAttr(st.s) + '"></label></div>';
       }).join('');
       row.innerHTML = n + '<b>' + escapeHtml(item.title) + '</b> (correct order)' + steps;
@@ -848,13 +853,35 @@ if (typeof module !== 'undefined' && module.exports) {
   }
   function pmHide() { $('progress-modal').hidden = true; }
   function tick() { return new Promise(function (res) { setTimeout(res, 30); }); }
+  /* Yield long enough for the browser to PAINT a frame.
+     Used right after the progress modal is shown, so the
+     buyer actually SEES it before the heavy synchronous
+     build blocks the main thread — without this, a slow
+     phone shows nothing at all and Generate looks dead. */
+  function paintTick() {
+    return new Promise(function (res) {
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(function () { setTimeout(res, 0); });
+      } else { setTimeout(res, 30); }
+    });
+  }
 
   /* ---------- build ---------- */
 
   async function doBuild(silent) {
-    if (!draft) generateDraft();
     if (!silent) pmShow('Generating your book…', 'Writing sentences…', 15, false);
     try {
+      /* let the progress modal paint before any heavy
+         synchronous work, so the press visibly does
+         something even on a slow phone */
+      await paintTick();
+      /* ALWAYS build from the CURRENT selections: if the
+         buyer changed the level, the activities or any
+         other setting since the draft was made, remake the
+         draft from those selections first (the same
+         regeneration "Give me different sentences" does) —
+         never silently rebuild the old book */
+      if (!draft || buildDirty) generateDraft();
       await tick();
       prepareDraftForBuild();
       if (!silent) pmStep('Placing pictures…', 45);
@@ -1330,7 +1357,7 @@ if (typeof module !== 'undefined' && module.exports) {
      the Storybook picture style, the standard US Letter
      size — then generate. Nothing is locked in: the buyer
      can change anything afterwards and generate again. */
-  function quickBook() {
+  async function quickBook() {
     $('level-select').value = '1';
     seedVariant = 1;
     themeFilter = 'all';
@@ -1343,6 +1370,11 @@ if (typeof module !== 'undefined' && module.exports) {
     updatePackChrome();
     $('trim-select').value = 'letter';
     markDirty();
+    /* show the progress modal and let it PAINT before the
+       heavy draft generation starts, so the press has
+       visible feedback even on a slow phone */
+    pmShow('Generating your book…', 'Writing sentences…', 15, false);
+    await paintTick();
     generateDraft();
     switchTab('book');
     doBuild();
@@ -1401,6 +1433,9 @@ if (typeof module !== 'undefined' && module.exports) {
     var baseOpts = readBookOpts();
     var localSel = E.nextVariantSelection(C, 8, picRotation.last, picRotation.nonce);
     pmShow('Generating your series…', 'Starting…', 4, true);
+    /* let the modal paint before the first book's heavy
+       synchronous generation blocks the main thread */
+    await paintTick();
     var booksMeta = [], parts = [], scoped = [], firstOpts = null, firstDesign = null;
     var totalPages = 1; /* the contents page */
     try {
@@ -1979,7 +2014,20 @@ if (typeof module !== 'undefined' && module.exports) {
     $('markstyle-select').value = st.markStyle || 'circle';
     updateDesignChrome();
     draft = st.draft || null;
-    buildDirty = !draft;
+    /* A state saved AFTER the buyer changed selections but
+       BEFORE the pages were remade pairs the NEW settings
+       with the OLD draft. If the draft's own recorded
+       settings disagree with the restored ones, treat the
+       draft as stale: the next build (or tab switch) then
+       regenerates from the current selections instead of
+       silently rebuilding the old book. Only fields the
+       draft records verbatim are compared, so a faithfully
+       saved book is never needlessly remade. */
+    buildDirty = !draft ||
+      draft.level !== st.level ||
+      draft.title !== (st.title || 'My Reading Book') ||
+      (draft.childName || '') !== (st.childName || '') ||
+      draft.pack !== (st.pack || 'storybook');
     if (draft) { renderEditor(); updateThemeNote(); }
     builtBook = null;
     currentPrint = null;
