@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PhonicsStrip Studio Pro — Songlap Deals</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ================= lock screen ================= -->
+<div id="lock-screen">
+  <div class="lock-card">
+    <div class="lock-logo">📚</div>
+    <h1>PhonicsStrip Studio Pro</h1>
+    <p class="lock-sub">Enter the name and license code from your purchase to unlock the studio. Your code stays saved on this device.</p>
+    <form id="lock-form">
+      <input id="lock-name" type="text" placeholder="Your name" autocomplete="name">
+      <input id="lock-input" type="text" placeholder="License code (PHS-XXXXXX)" autocomplete="off" style="text-transform:uppercase">
+      <button id="lock-submit" class="btn btn-gold" type="submit">Unlock</button>
+      <div id="lock-error" class="lock-error" hidden></div>
+    </form>
+    <p class="lock-note">One code per buyer — it registers to your name on first use.</p>
+  </div>
+</div>
+
+<!-- ================= app ================= -->
+<div id="app" hidden>
+  <div id="license-bar" class="license-bar" hidden>
+    Licensed to <span id="license-name"></span> · <span id="license-code"></span> · Commercial licence included for the books you create
+  </div>
+  <header class="site-header">
+    <div class="header-inner">
+      <div>
+        <h1>📚 PhonicsStrip Studio Pro</h1>
+        <p>Pick a phonics level, choose the activities — print a complete, truly decodable reading book.</p>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabbar wrap">
+    <button class="tab-btn on" data-tab="build">1 · Build</button>
+    <button class="tab-btn" data-tab="content">2 · Content editor</button>
+    <button class="tab-btn" data-tab="book">3 · Book &amp; cover</button>
+    <button class="tab-btn" data-tab="books">4 · My Books</button>
+  </nav>
+
+  <main class="wrap">
+
+    <!-- ============ TAB: BUILD ============ -->
+    <div id="tab-build" class="tabpane">
+      <section class="panel">
+        <h2>Reading level</h2>
+        <div class="row">
+          <label class="field grow">Phonics level
+            <select id="level-select"></select>
+          </label>
+        </div>
+        <p class="hint" id="level-info"></p>
+        <p class="hint" id="level-sight"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Book details</h2>
+        <div class="row">
+          <label class="field grow">Book title
+            <input id="in-title" type="text" value="My First Reading Book">
+          </label>
+          <label class="field">Child’s name <span class="opt">(optional — prints on the cover &amp; certificate)</span>
+            <input id="in-child" type="text" placeholder="e.g. Ava">
+          </label>
+        </div>
+        <div class="row">
+          <button id="newset-btn" class="btn btn-ghost" type="button">🎲 New set of sentences</button>
+          <span class="hint" id="seed-note"></span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Picture pack</h2>
+        <p class="hint">Choose how the words are drawn. The words, sentences and reading level never change — only the pictures, plus the cover decorations and tracker symbols. Make each book in a series look fresh with a different pack.</p>
+        <div class="row">
+          <label class="field grow">Picture pack
+            <select id="pack-select"></select>
+          </label>
+        </div>
+        <p class="hint" id="pack-blurb"></p>
+        <div class="pack-preview" id="pack-preview"></div>
+        <div class="row" style="margin-top:10px">
+          <button id="shuffle-pics-btn" class="btn btn-ghost btn-small" type="button">🔀 Shuffle pictures</button>
+          <span class="hint">With the Illustrated pack, every new book already rotates to a different picture for each word — shuffle forces a fresh mix right now.</span>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Your own pictures</h2>
+        <p class="hint">Make the books truly yours: give any reading word <b>your own picture</b> — a photo of your pet, your classroom, your shop mascot. Your picture replaces the word’s picture everywhere in the book (reading strips, comprehension scenes, stories), in every picture pack. Pictures are kept in this browser, inside your saved projects.</p>
+        <div class="row">
+          <label class="field grow">Reading word
+            <select id="cp-word"></select>
+          </label>
+          <div class="cp-actions">
+            <img id="cp-preview" class="pic-thumb" alt="" hidden>
+            <label class="btn btn-ghost btn-small" for="cp-file">⬆ Upload picture</label>
+            <input id="cp-file" type="file" accept="image/*" hidden>
+            <button id="cp-remove" class="btn btn-ghost btn-small" type="button" disabled>Remove</button>
+          </div>
+        </div>
+        <p class="hint" id="cp-status"></p>
+        <div id="cp-list" class="cp-list"></div>
+        <h3 class="cp-sub">Add your own word <span class="opt">(up to 3 — with its own picture)</span></h3>
+        <p class="hint">Your word joins this level’s reading words, so it can appear in sentences and strips like any other word. To keep the decodable promise, the word must only use the sounds taught up to this level — if it doesn’t fit, we’ll tell you and it won’t be added.</p>
+        <div class="row">
+          <label class="field">Word
+            <input id="cw-word" type="text" placeholder="e.g. wig" autocomplete="off">
+          </label>
+          <label class="field">Word group <span class="opt">(near-miss pictures come from the same group)</span>
+            <select id="cw-cat"></select>
+          </label>
+          <div class="cp-actions">
+            <img id="cw-preview" class="pic-thumb" alt="" hidden>
+            <label class="btn btn-ghost btn-small" for="cw-file">⬆ Upload picture</label>
+            <input id="cw-file" type="file" accept="image/*" hidden>
+            <button id="cw-add" class="btn btn-teal btn-small" type="button">Add word</button>
+          </div>
+        </div>
+        <p class="hint" id="cw-status"></p>
+        <div id="cw-list" class="cp-list"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Activities</h2>
+        <p class="hint">Tick the activities to include and set how many items each one gets. Every sentence is checked against the level — only this level’s sounds and focus words are used. The three pictures on each strip always come from the same group, so children must read, not guess.</p>
+        <div id="activities-list"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Your own sentences</h2>
+        <p class="hint">Optional: type your own sentences, one per line (up to 150). Add <b>| emoji</b> after a sentence to choose its picture — the two near-miss pictures are picked automatically from the same group. Without an emoji, the first reading word found in the sentence becomes the picture. Sentences whose picture cannot be matched become Read &amp; Draw pages.</p>
+        <textarea id="custom-text" class="big-text" placeholder="The cat is on the roof. | 🐱&#10;My dog can run fast."></textarea>
+      </section>
+    </div>
+
+    <!-- ============ TAB: CONTENT ============ -->
+    <div id="tab-content" class="tabpane" hidden>
+      <section class="panel">
+        <h2>Content editor</h2>
+        <p class="hint">Every generated item can be changed here: rewrite any sentence, and for picture strips pick a different picture — the near-miss pictures update to stay in the same group. Answer keys are rebuilt from exactly what is shown here, so they can never disagree with the book.</p>
+        <div class="row">
+          <button id="regen-btn" class="btn btn-ghost" type="button">↻ Regenerate all items (new sentences)</button>
+          <span class="hint" id="editor-status"></span>
+        </div>
+        <div id="editor-list"></div>
+      </section>
+    </div>
+
+    <!-- ============ TAB: BOOK ============ -->
+    <div id="tab-book" class="tabpane" hidden>
+      <section class="panel">
+        <h2>Design &amp; print settings</h2>
+        <div class="row">
+          <label class="field grow">Design theme <span class="opt">(applies to the whole book — or pick a cover card below)</span>
+            <select id="design-select"></select>
+          </label>
+          <div class="swatches" id="design-swatches"></div>
+        </div>
+        <div class="design-cards" id="design-cards"></div>
+        <p class="hint" id="design-blurb"></p>
+        <div class="row">
+          <label class="field">Book size (trim)
+            <select id="trim-select">
+              <option value="letter">US Letter 8.5×11</option>
+              <option value="a4">A4</option>
+              <option value="8.5x10">8.5×10 (KDP kids’ size)</option>
+            </select>
+          </label>
+          <label class="field">Your business / brand <span class="opt">(prints on the book)</span>
+            <input id="in-business" type="text" value="Songlap Deals">
+          </label>
+        </div>
+        <div class="row checks">
+          <label class="check"><input type="checkbox" id="cover-on" checked> Designed front cover</label>
+          <label class="check"><input type="checkbox" id="backcover-on" checked> Designed back cover</label>
+          <label class="check"><input type="checkbox" id="inksaver-on"> Ink-saver printing</label>
+          <label class="check"><input type="checkbox" id="bw-on"> Black &amp; white pictures</label>
+        </div>
+        <p class="hint">Illustrated picture artwork: Noto Emoji (Apache License 2.0, Google) · Twemoji (CC BY 4.0, Twitter) · Fluent Emoji (MIT, Microsoft). The credit also prints in small print on the back cover of Illustrated books.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Build your book</h2>
+        <div class="row">
+          <button id="build-btn" class="btn btn-gold btn-big" type="button">Build my book</button>
+        </div>
+        <p id="build-status" class="hint"></p>
+        <div class="row">
+          <button id="print-btn" class="btn btn-teal" type="button" disabled>Print / Save PDF</button>
+          <button id="png-btn" class="btn btn-teal" type="button" disabled>Download front cover PNG</button>
+        </div>
+        <div id="book-preview" class="book-preview"></div>
+      </section>
+
+      <section class="panel">
+        <h2>KDP Wrap Cover Builder</h2>
+        <p class="hint">For paperback publishing: enter your book’s page count and paper type — the spine width and full wrap size are calculated for you (0.125″ bleed included). Preview the wrap, then print it to PDF at exactly the right size.</p>
+        <div class="row">
+          <label class="field grow">Cover title
+            <input id="wrap-title" type="text" value="My First Reading Book">
+          </label>
+          <label class="field grow">Subtitle <span class="opt">(optional)</span>
+            <input id="wrap-subtitle" type="text" placeholder="e.g. 100% Decodable Reading Strips">
+          </label>
+          <label class="field">Author / brand
+            <input id="wrap-author" type="text" value="Songlap Deals">
+          </label>
+        </div>
+        <div class="row">
+          <label class="field">Interior page count
+            <input id="wrap-pages" type="number" min="24" max="800" value="80">
+          </label>
+          <label class="field">Paper
+            <select id="wrap-paper">
+              <option value="white">White paper</option>
+              <option value="cream">Cream paper</option>
+            </select>
+          </label>
+          <label class="field">Trim size
+            <select id="wrap-trim">
+              <option value="8.5x11">8.5 × 11 in</option>
+              <option value="8.5x10">8.5 × 10 in</option>
+            </select>
+          </label>
+        </div>
+        <p class="hint" id="wrap-dims"></p>
+        <div class="row">
+          <button id="wrap-preview-btn" class="btn btn-gold" type="button">Preview wrap cover</button>
+          <button id="wrap-print-btn" class="btn btn-teal" type="button" disabled>Print wrap / Save PDF</button>
+        </div>
+        <div id="wrap-preview" class="wrap-preview"></div>
+      </section>
+    </div>
+
+    <!-- ============ TAB: MY BOOKS ============ -->
+    <div id="tab-books" class="tabpane" hidden>
+      <section class="panel">
+        <h2>My Books (saved projects)</h2>
+        <div class="row">
+          <label class="field grow">Project name
+            <input id="project-name" type="text" placeholder="e.g. Ava — Level 1 — Boho Rainbow">
+          </label>
+          <button id="project-save" class="btn btn-teal" type="button">Save project</button>
+        </div>
+        <div id="projects-list"></div>
+        <p class="hint">Projects are saved in this browser only, including your edited items.</p>
+      </section>
+
+      <section class="panel help">
+        <h2>How it works</h2>
+        <ul>
+          <li><strong>Decodable promise:</strong> every generated sentence uses only the chosen level’s phonics patterns plus its Focus Words (sight words). Levels are cumulative — each level keeps all earlier sounds.</li>
+          <li><strong>Near-miss pictures:</strong> the 3 pictures on a strip always come from the same group (all animals, all food…), so the child must read the word, not guess by picture type.</li>
+          <li><strong>Answer keys</strong> are generated from the printed pages themselves — edit any item and the key updates with it.</li>
+          <li><strong>Selling your books?</strong> Your licence covers selling the finished reading books you create (see the Commercial Use Licence in your download). The tool and your code themselves must never be shared or resold.</li>
+          <li><strong>Print:</strong> use “Print / Save PDF” at 100% scale. For KDP, build the interior here, then make the matching wrap cover in the KDP Wrap Cover Builder.</li>
+        </ul>
+      </section>
+    </div>
+
+  </main>
+  <footer class="site-footer">PhonicsStrip Studio Pro · A Songlap Deals tool</footer>
+</div>
+
+<style id="book-style"></style>
+<style id="wrap-style"></style>
+<script src="content.js"></script>
+<script src="designs.js"></script>
+<script src="engine.js"></script>
+<script src="book.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
