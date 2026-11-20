@@ -20,6 +20,10 @@
  *    bandBg    — patterned top/bottom bands on the covers
  *    cluster   — 4 decorative emojis around the hero motif
  *    tiles     — 5 emojis for the decorative tile row
+ *    hero      — the ONE big illustration cluster on the
+ *                master-template front cover (main first)
+ *    heroBg    — soft "stage" gradient behind the hero
+ *    corner    — tiny motif at the edges of activity pages
  *  A picture pack's `deco` (content.js) can override
  *  cluster / tiles per book.
  * ============================================================
@@ -46,7 +50,11 @@ var PHS_DESIGNS = [
     coverText: '#5a4030',
     bandBg: 'repeating-linear-gradient(45deg, #b4622d 0, #b4622d 6mm, #c97a41 6mm, #c97a41 12mm)',
     cluster: ['🌸', '🦋', '🌵', '🍄'],
-    tiles: ['☀️', '🌷', '⭐', '🍓', '🌼']
+    tiles: ['☀️', '🌷', '⭐', '🍓', '🌼'],
+    hero: ['🌈', '🦊', '🦔', '🐻'],
+    heroBg: 'radial-gradient(ellipse at 50% 115%, rgba(125,139,94,.45) 0%, rgba(125,139,94,.18) 45%, rgba(125,139,94,0) 72%), ' +
+      'radial-gradient(circle at 50% 0%, rgba(255,250,241,.65) 0%, rgba(255,250,241,0) 60%)',
+    corner: '🌈'
   },
   {
     id: 'woodland', name: 'Woodland Friends',
@@ -65,7 +73,11 @@ var PHS_DESIGNS = [
     coverText: '#44503e',
     bandBg: 'repeating-linear-gradient(45deg, #5d7052 0, #5d7052 6mm, #6d8261 6mm, #6d8261 12mm)',
     cluster: ['🦉', '🍄', '🌲', '🐿️'],
-    tiles: ['🍂', '🌰', '🐰', '🍁', '🦔']
+    tiles: ['🍂', '🌰', '🐰', '🍁', '🦔'],
+    hero: ['🌲', '🦊', '🐻', '🐰'],
+    heroBg: 'radial-gradient(ellipse at 50% 115%, rgba(93,112,82,.4) 0%, rgba(93,112,82,.16) 45%, rgba(93,112,82,0) 72%), ' +
+      'radial-gradient(circle at 50% 0%, rgba(255,254,248,.6) 0%, rgba(255,254,248,0) 60%)',
+    corner: '🍂'
   },
   {
     id: 'dino', name: 'Dino Adventure',
@@ -83,7 +95,11 @@ var PHS_DESIGNS = [
     coverText: '#1f4d3a',
     bandBg: 'repeating-linear-gradient(45deg, #2e8b6e 0, #2e8b6e 6mm, #3aa37f 6mm, #3aa37f 12mm)',
     cluster: ['🦖', '🌋', '🌴', '🥚'],
-    tiles: ['🦕', '🦴', '☀️', '🌿', '🍃']
+    tiles: ['🦕', '🦴', '☀️', '🌿', '🍃'],
+    hero: ['🦖', '🦕', '🌴', '🌋'],
+    heroBg: 'radial-gradient(ellipse at 50% 115%, rgba(46,139,110,.38) 0%, rgba(46,139,110,.15) 45%, rgba(46,139,110,0) 72%), ' +
+      'radial-gradient(circle at 50% 0%, rgba(251,255,252,.65) 0%, rgba(251,255,252,0) 60%)',
+    corner: '🦕'
   },
   {
     id: 'space', name: 'Space Explorers',
@@ -104,7 +120,11 @@ var PHS_DESIGNS = [
     coverText: '#ffe9a8',
     bandBg: 'repeating-linear-gradient(45deg, #ff7a59 0, #ff7a59 6mm, #ff8f73 6mm, #ff8f73 12mm)',
     cluster: ['🪐', '⭐', '🌙', '👽'],
-    tiles: ['🚀', '🛸', '☄️', '🔭', '🌟']
+    tiles: ['🚀', '🛸', '☄️', '🔭', '🌟'],
+    hero: ['🧑‍🚀', '🪐', '🚀', '⭐'],
+    heroBg: 'radial-gradient(ellipse at 50% 115%, rgba(154,165,217,.4) 0%, rgba(154,165,217,.15) 45%, rgba(154,165,217,0) 72%), ' +
+      'radial-gradient(circle at 50% 0%, rgba(255,233,168,.28) 0%, rgba(255,233,168,0) 60%)',
+    corner: '⭐'
   },
   {
     id: 'ocean', name: 'Ocean Discovery',
@@ -123,25 +143,34 @@ var PHS_DESIGNS = [
     coverText: '#14424a',
     bandBg: 'repeating-linear-gradient(45deg, #0e7a8a 0, #0e7a8a 6mm, #1299ab 6mm, #1299ab 12mm)',
     cluster: ['🐙', '🐢', '🐚', '🌊'],
-    tiles: ['🐠', '🦀', '🐳', '🦑', '🐡']
+    tiles: ['🐠', '🦀', '🐳', '🦑', '🐡'],
+    hero: ['🐳', '🐢', '🐙', '🐚'],
+    heroBg: 'radial-gradient(ellipse at 50% 115%, rgba(14,122,138,.35) 0%, rgba(14,122,138,.14) 45%, rgba(14,122,138,0) 72%), ' +
+      'radial-gradient(circle at 50% 0%, rgba(255,255,255,.6) 0%, rgba(255,255,255,0) 60%)',
+    corner: '🌊'
   },
   {
     id: 'retrogroovy', name: 'Retro Groovy',
-    blurb: 'Composition-notebook checks & smileys — TeacherTok favourite',
-    motif: '😊', tagline: 'Groovy little readers',
-    pageBg: '#f6f1e7', cardBg: '#fffdf6', headerBg: '#222222', headerText: '#ffe98a',
-    cellBg: '#ffffff', cellAlt: '#f3ecd9', cellText: '#2b2b2b', cellBorder: '#8a8a8a',
-    accent: '#e4572e', freeBg: '#ffe98a', borderStyle: 'double', radius: 10,
+    blurb: 'Mustard, orange & peach with a smiling sun — retro classroom charm',
+    motif: '🌞', tagline: 'Groovy little readers',
+    pageBg: '#faf0e0', cardBg: '#fffaf0', headerBg: '#c2571f', headerText: '#fff3d6',
+    cellBg: '#ffffff', cellAlt: '#fbeed3', cellText: '#4a2c14', cellBorder: '#d9a05b',
+    accent: '#e4572e', freeBg: '#ffe98a', borderStyle: 'double', radius: 12,
     headerFont: 'Georgia, "Times New Roman", serif',
     cellFont: PHS_LETTER_FONT,
-    coverBg: 'radial-gradient(circle at 12% 14%, rgba(228,87,46,.18) 0, rgba(228,87,46,.18) 5mm, transparent 6mm), ' +
-      'radial-gradient(circle at 88% 84%, rgba(34,34,34,.14) 0, rgba(34,34,34,.14) 6mm, transparent 7mm), ' +
-      'radial-gradient(circle at 86% 12%, rgba(255,233,138,.55) 0, rgba(255,233,138,.55) 5mm, transparent 6mm), ' +
-      'linear-gradient(160deg, #faf5e9 0%, #f3ecd9 60%, #eadfc2 100%)',
-    coverText: '#2b2b2b',
-    bandBg: 'repeating-linear-gradient(45deg, #222222 0, #222222 4mm, #f6f1e7 4mm, #f6f1e7 8mm)',
+    coverBg: 'radial-gradient(circle at 12% 14%, rgba(228,87,46,.2) 0, rgba(228,87,46,.2) 5mm, transparent 6mm), ' +
+      'radial-gradient(circle at 88% 84%, rgba(217,160,91,.3) 0, rgba(217,160,91,.3) 6mm, transparent 7mm), ' +
+      'radial-gradient(circle at 86% 12%, rgba(255,214,120,.6) 0, rgba(255,214,120,.6) 5mm, transparent 6mm), ' +
+      'radial-gradient(circle at 10% 86%, rgba(232,130,160,.25) 0, rgba(232,130,160,.25) 5mm, transparent 6mm), ' +
+      'linear-gradient(160deg, #fdeed3 0%, #f9dcc0 60%, #f5c9a8 100%)',
+    coverText: '#4a2c14',
+    bandBg: 'repeating-linear-gradient(45deg, #c2571f 0, #c2571f 5mm, #e8a33d 5mm, #e8a33d 10mm)',
     cluster: ['🌼', '✌️', '🎵', '🕶️'],
-    tiles: ['😊', '🌈', '🎶', '🍒', '⭐']
+    tiles: ['😊', '🌈', '🎶', '🍒', '⭐'],
+    hero: ['🌞', '🌼', '🌸', '🌈'],
+    heroBg: 'radial-gradient(ellipse at 50% 115%, rgba(228,87,46,.32) 0%, rgba(228,87,46,.13) 45%, rgba(228,87,46,0) 72%), ' +
+      'radial-gradient(circle at 50% 0%, rgba(255,250,240,.65) 0%, rgba(255,250,240,0) 60%)',
+    corner: '🌼'
   }
 ];
 
