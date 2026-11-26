@@ -251,6 +251,12 @@ if (typeof module !== 'undefined' && module.exports) {
       generateDraft('Settings changed — the pages were remade and your edits were reset.');
     }
     if (name === 'book') updatePrintCheck();
+    /* the preview's fit-scale is measured from the panel, so it
+       must be (re)done once this panel is actually visible: a
+       build runs while the Build tab is showing and the hidden
+       panel measures 0 wide, which used to leave the book
+       preview collapsed to an empty strip on phones */
+    if (name === 'book' && preview.pages && preview.pages.length) applyPreview();
   }
 
   /* ================= build tab ================= */
@@ -974,6 +980,10 @@ if (typeof module !== 'undefined' && module.exports) {
     var scaleEl = box.querySelector('.pv-scale');
     var viewport = box.querySelector('.pv-viewport');
     if (!scaleEl || !viewport || !preview.pages.length) return;
+    /* hidden panel (e.g. while a build runs on the Build tab):
+       measuring now would stamp 0-size styles over the preview —
+       keep the last good layout; switchTab re-fits on arrival */
+    if (!viewport.clientWidth) return;
     scaleEl.style.transform = '';
     scaleEl.style.width = '';
     scaleEl.style.height = '';
