@@ -129,6 +129,27 @@ function paginateItems(items, capFor, kindOf) {
     pics.forEach(function (e) { cur.pics[e] = true; });
     cur.entries.push({ it: it, n: idx + 1 });
   });
+  /* Tail rebalance (fix round 2): a section whose count
+     lands one past a page boundary packed 4,4,1 — a final
+     page holding a single item, three quarters empty
+     (the Level 5 book's last Trace page). When the items
+     carry no pictures, the previous page's last entry can
+     move forward to join the lone one: the printed order
+     is untouched (the moved entry still prints immediately
+     before it), the page count is unchanged, and no page
+     is left holding one item while its neighbour holds
+     three or more. Sections with pictures keep the strict
+     packing — a moved strip could repeat a picture on its
+     new page (Read & Circle fill is the engine's D1 job). */
+  var picFree = (items || []).every(function (it) { return itemPics(it).length === 0; });
+  if (picFree) {
+    for (var guard = 0; guard < 8 && pages.length >= 2; guard++) {
+      var lastPg = pages[pages.length - 1];
+      var prevPg = pages[pages.length - 2];
+      if (lastPg.entries.length !== 1 || prevPg.kind !== lastPg.kind || prevPg.entries.length < 3) break;
+      lastPg.entries.unshift(prevPg.entries.pop());
+    }
+  }
   return pages.map(function (pg) { return pg.entries; });
 }
 
