@@ -595,13 +595,21 @@ function belongsToPage(data, opts, design) {
     '</div></div>';
 }
 
+/* The level's patterns text without its "(…)" example
+   list — for sentences that wrap the patterns in their
+   own parentheses, so the book never prints nested
+   "(Short-A CVC words (cat, jam, map…))" (audit D4). */
+function patternsShort(patterns) {
+  return String(patterns || '').replace(/\s*\([^)]*\)/g, '');
+}
+
 function howToPage(data, opts) {
   var lis = data.sections.map(function (s) {
     return '<li><b>' + esc(s.activity.name) + '.</b> ' + esc(s.activity.how || '') + '</li>';
   }).join('');
   return '<div class="bk-page bk-howto"><h2>How to use this book</h2>' +
     '<p><b>For parents and teachers:</b> this is a decodable reader. Every sentence in the activity pages uses <b>only</b> the phonics patterns for ' +
-    esc(data.levelName) + ' (' + esc(data.patterns) + ') plus the Focus Words on the next page. If a child can sound out the patterns, they can read every sentence — no guessing from the pictures: the three pictures on each strip are near-misses from the same group, so the words must be read.</p>' +
+    esc(data.levelName) + ' (' + esc(patternsShort(data.patterns)) + ') plus the Focus Words on the next page. If a child can sound out the patterns, they can read every sentence — no guessing from the pictures: the three pictures on each strip are near-misses from the same group, so the words must be read.</p>' +
     '<h3 style="margin:4mm 0 2mm">The activities</h3><ul>' + lis + '</ul>' +
     '<p style="margin-top:4mm">Colour a star on the Progress Tracker for every page finished. The Super Reader Certificate at the back celebrates finishing the whole book. Answer keys for every activity are at the back, in the same order as the pages.</p>' +
     '</div>';
@@ -614,7 +622,9 @@ function focusWordsPage(data, opts) {
   return '<div class="bk-page bk-focus"><h2>Focus Words</h2>' +
     '<p class="focus-note">These little words appear again and again in this book. Some of them cannot be sounded out yet — learn them by heart, then spot them in the sentences!</p>' +
     '<div class="focus-grid">' + words + '</div>' +
-    '<p class="focus-note"><b>Sounds in this book:</b> ' + esc(data.patterns) + ' — plus every sound from the levels before.</p>' +
+    '<p class="focus-note"><b>Sounds in this book:</b> ' + esc(data.patterns) +
+    /* Level 1 has no levels before it (audit D4) */
+    (data.level > 1 ? ' — plus every sound from the levels before.' : '.') + '</p>' +
     '</div>';
 }
 
@@ -830,6 +840,11 @@ function scopeCss(css, scope) {
 
 var WRAP_PAPER_FACTORS = { white: 0.002252, cream: 0.0025 };
 var WRAP_BLEED_IN = 0.125;
+/* KDP spines narrower than this carry no text at all —
+   the rotated line is thicker than the spine and spills
+   onto both covers (audit D2). ~0.25 in ≈ 111 white-paper
+   pages; standard practice for thin paperbacks. */
+var WRAP_SPINE_MIN_TEXT_IN = 0.25;
 
 /* wrapCoverDims(pageCount, paper, trimId) — pure maths.
    trimId: '8.5x11' (default) or '8.5x10'. */
@@ -856,7 +871,7 @@ function wrapCoverCss(design, dims) {
   '.wrap-back, .wrap-front { width: ' + (dims.trimW + dims.bleed) + 'in; box-sizing: border-box; padding: 0.45in 0.4in; text-align: center; }' +
   '.wrap-back { padding-left: ' + (dims.bleed + 0.3) + 'in; }' +
   '.wrap-front { padding-right: ' + (dims.bleed + 0.3) + 'in; }' +
-  '.wrap-spine { width: ' + dims.spineIn + 'in; background: ' + d.headerBg + '; color: ' + d.headerText + '; display: flex; align-items: center; justify-content: center; }' +
+  '.wrap-spine { width: ' + dims.spineIn + 'in; background: ' + d.headerBg + '; color: ' + d.headerText + '; display: flex; align-items: center; justify-content: center; overflow: hidden; }' +
   '.wrap-spine span { writing-mode: vertical-rl; font-family: ' + d.headerFont + '; font-size: 10pt; letter-spacing: 1px; white-space: nowrap; }' +
   '.kdp-wrap .card { background: ' + d.cardBg + '; color: ' + d.cellText + '; border: 3px solid ' + d.accent + '; border-radius: 14px; padding: 0.3in 0.3in 0.25in; }' +
   '.kdp-wrap h1 { font-family: ' + d.headerFont + '; color: ' + d.headerBg + '; font-size: 30pt; line-height: 1.15; margin: 0.1in 0; }' +
@@ -910,6 +925,23 @@ function wrapCoverHtml(meta, design, dims, pack) {
       return '<span class="wstair' + ((i + 1) === meta.level ? ' cur' : '') + '" style="height:' + h + 'in">L' + (i + 1) + '</span>';
     }).join('') + '</div><div class="stairs-cap">Collect all 8 levels — this is Level ' + meta.level + '</div>';
   }
+  /* spine text (audit D2): a thin spine prints NO text —
+     at 10pt the rotated line is wider than a sub-0.25in
+     spine and the letters spill onto both covers. Wider
+     spines shrink-to-fit: the size is capped so the line
+     stays thinner than the spine AND its run stays inside
+     the wrap height, however long the title is. The outer
+     geometry (wrapCoverDims) never changes. */
+  var spineText = String(meta.title || '') + ' · ' + String(meta.author || '');
+  var spineHtml = '<div class="wrap-spine"></div>';
+  if (dims.spineIn >= WRAP_SPINE_MIN_TEXT_IN) {
+    var spinePt = Math.floor(Math.min(10,
+      dims.spineIn * 72 * 0.8,
+      (dims.totalHeightIn - 0.6) * 72 / (0.55 * Math.max(spineText.length, 1))) * 2) / 2;
+    if (spinePt >= 5) {
+      spineHtml = '<div class="wrap-spine"><span style="font-size:' + spinePt + 'pt">' + esc(spineText) + '</span></div>';
+    }
+  }
   return '<div class="kdp-wrap">' +
     '<div class="wrap-back"><div class="card"><h2 style="font-size:17pt">What’s inside this book</h2>' +
     '<ul class="inside">' + inside + '</ul>' +
@@ -918,7 +950,7 @@ function wrapCoverHtml(meta, design, dims, pack) {
     '<div class="thanks">Happy reading!</div></div>' +
     '<div class="barcode-box">ISBN barcode area</div>' +
     '<div class="biz">' + esc(meta.author || '') + '</div></div>' +
-    '<div class="wrap-spine"><span>' + esc(meta.title) + ' · ' + esc(meta.author || '') + '</span></div>' +
+    spineHtml +
     '<div class="wrap-front"><span class="badge">EARLY READER SERIES</span>' +
     '<span class="badge alt">' + esc(meta.levelLine || '') + '</span>' +
     '<div class="motif">' + esc(design.motif || '📚') + '</div>' +
@@ -1002,9 +1034,10 @@ var PhonicsBook = {
   sectionPrintedItems: sectionPrintedItems, keyEntryForItem: keyEntryForItem,
   keysFromPrinted: keysFromPrinted, estimatePageCount: estimatePageCount,
   seriesContentsPage: seriesContentsPage, scopeCss: scopeCss, listingKitFor: listingKitFor,
+  patternsShort: patternsShort,
   itemPics: itemPics, paginateItems: paginateItems, decoFor: decoFor,
   isPicDataUrl: isPicDataUrl, isPicAsset: isPicAsset, picHtml: picHtml,
-  WRAP_PAPER_FACTORS: WRAP_PAPER_FACTORS, WRAP_BLEED_IN: WRAP_BLEED_IN,
+  WRAP_PAPER_FACTORS: WRAP_PAPER_FACTORS, WRAP_BLEED_IN: WRAP_BLEED_IN, WRAP_SPINE_MIN_TEXT_IN: WRAP_SPINE_MIN_TEXT_IN,
   wrapCoverDims: wrapCoverDims, wrapCoverCss: wrapCoverCss, wrapCoverHtml: wrapCoverHtml
 };
 
