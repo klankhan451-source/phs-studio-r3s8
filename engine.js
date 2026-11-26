@@ -450,6 +450,35 @@ function semanticCheck(C, levelId, template, fills) {
       if (!animate(subj)) return false;
     }
   }
+  /* physical-fit adjectives (fix round 2): a shape, taste
+     or depth word only describes a noun it can describe —
+     "The ram is flat" is decodable and grammatical, and
+     still wrong. Same subject resolution as the emotion
+     rule; the content module owns the fit table. */
+  if (fills.adj && C.PHS_ADJ_FIT && C.PHS_ADJ_FIT[fills.adj] && C.phsAdjFit) {
+    var adjOk = function (noun) { return !!noun && C.phsAdjFit(fills.adj, nounClassOf(C, noun)); };
+    var asubj = adjectiveSubject(template, fills);
+    if (asubj === 'both') {
+      if (!adjOk(fills.noun) || !adjOk(fills.noun2)) return false;
+    } else if (asubj === 'plural') {
+      if (!adjOk(fills.nounPl)) return false;
+    } else if (asubj === 'person') {
+      if (!C.phsAdjFit(fills.adj, 'person')) return false;
+    } else if (asubj) {
+      if (!adjOk(asubj)) return false;
+    }
+  }
+  /* place fit (fix round 2): a noun resting on / in a
+     place must physically fit it — no bus on a tent, no
+     log up on a tent, no wax on a net. Covers the on / in
+     templates at every level, including "There is a
+     {noun} in the {place}" and "{nounPl} are in the
+     {place}"; motion ("to the {place}") and "at the
+     {place}" are the verb frames' business, not this. */
+  if (fills.place && C.phsPlaceFit && / (on|in) the \{place\}/.test(template)) {
+    var psubj = fills.noun || fills.nounPl;
+    if (psubj && !C.phsPlaceFit(psubj, fills.place)) return false;
+  }
   var okAll = true;
   [['{verb}', fills.verb], ['{verb2}', fills.verb2]].forEach(function (pair) {
     if (!okAll || !pair[1]) return;
@@ -724,15 +753,25 @@ function makeCompItem(C, levelId, rng, usedSet, ctx) {
        word (sad / mad / glad) can only describe a person or
        an animal — never "The can is sad" */
     var adjPool = cum.adjectives.filter(function (a) {
-      return (C.PHS_EMOTION_ADJS || []).indexOf(a) === -1 ||
-        C.phsIsAnimateClass(nounClassOf(C, noun));
+      if ((C.PHS_EMOTION_ADJS || []).indexOf(a) !== -1 &&
+          !C.phsIsAnimateClass(nounClassOf(C, noun))) return false;
+      if (C.PHS_ADJ_FIT && C.PHS_ADJ_FIT[a] && C.phsAdjFit &&
+          !C.phsAdjFit(a, nounClassOf(C, noun))) return false;
+      return true;
     });
     if (!adjPool.length) continue;
     var adj = pick(rng, adjPool);
     var s1 = name + ' has a ' + noun.w + '.';
     var s2, place = null;
     if (levelId >= 2) {
-      place = pick(rng, cum.places);
+      /* the passage's place must physically fit its noun
+         (fix round 2) — the comprehension builder writes
+         its on/in sentence directly, so it applies the
+         same phsPlaceFit rule the semantic check uses */
+      var fitPlaces = C.phsPlaceFit
+        ? cum.places.filter(function (p) { return C.phsPlaceFit(noun, p); })
+        : cum.places;
+      place = pick(rng, fitPlaces.length ? fitPlaces : cum.places);
       s2 = 'The ' + noun.w + ' is on the ' + place + '.';
       if (rng() < 0.5) s2 = 'The ' + noun.w + ' is in the ' + place + '.';
     } else {
