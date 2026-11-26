@@ -1026,6 +1026,201 @@ function customDecoMap(C, customPics) {
   return map;
 }
 
+/* Split a picture string into its emoji grapheme
+   clusters (code points + variation selectors, skin
+   tones and ZWJ joins stay with their base glyph), so a
+   composite step picture like 🐱🎩 can be resolved part
+   by part. Plain strings come back as one cluster. */
+function emojiClusters(str) {
+  var chars = Array.from(String(str == null ? '' : str));
+  var clusters = [];
+  var cur = '';
+  for (var i = 0; i < chars.length; i++) {
+    var cp = chars[i].codePointAt(0);
+    if (cp === 0xFE0F || cp === 0x20E3 || (cp >= 0x1F3FB && cp <= 0x1F3FF)) { cur += chars[i]; continue; }
+    if (cp === 0x200D) { cur += chars[i]; if (i + 1 < chars.length) { cur += chars[i + 1]; i++; } continue; }
+    if (cur) clusters.push(cur);
+    cur = chars[i];
+  }
+  if (cur) clusters.push(cur);
+  return clusters;
+}
+
+/* Read & Circle page fill (audit D1): the book paginates
+   strictly in section order under a no-picture-repeat
+   rule per page, so strips generated back-to-back that
+   share a picture close pages early and leave near-empty
+   pages (the default build printed 1,1,3,2,2,2,1 strips
+   per page). Arrange the section's items by SIMULATING
+   that exact pagination (comfortable capacity 4 — the
+   tightest the book ever uses) and filling each simulated
+   page greedily: the opener that admits the fullest page
+   wins, then the first clash-free strip fills each slot.
+   First occurrences of each target are arranged before
+   any repeat, so the target-rotation rule still holds in
+   printed order. Only the array order changes — printed
+   numbers follow the array and the answer keys are
+   derived from the printed items, so both stay exact. */
+function arrangeCircleItems(items) {
+  var cap = 4; /* book.js CAPACITY.circle (comfortable) */
+  var seen = {};
+  var firsts = [], repeats = [];
+  (items || []).forEach(function (it) {
+    if (seen[it.correct.w]) repeats.push(it);
+    else { seen[it.correct.w] = true; firsts.push(it); }
+  });
+  function arrangeRun(pool) {
+    var out = [];
+    pool = pool.slice();
+    while (pool.length) {
+      var best = null;
+      for (var oi = 0; oi < pool.length; oi++) {
+        var rest = pool.slice();
+        var opener = rest.splice(oi, 1)[0];
+        var page = [opener];
+        var pics = {};
+        opener.options.forEach(function (o) { pics[o.e] = true; });
+        while (page.length < cap) {
+          var fi = -1;
+          for (var j = 0; j < rest.length; j++) {
+            var clash = rest[j].options.some(function (o) { return pics[o.e]; });
+            if (!clash) { fi = j; break; }
+          }
+          if (fi === -1) break;
+          var nxt = rest.splice(fi, 1)[0];
+          page.push(nxt);
+          nxt.options.forEach(function (o) { pics[o.e] = true; });
+        }
+        if (!best || page.length > best.page.length) {
+          best = { page: page };
+          if (page.length >= cap) break;
+        }
+      }
+      /* commit the winning page: remove its items from
+         the pool (the simulation worked on copies) */
+      best.page.forEach(function (pg) {
+        var k = pool.indexOf(pg);
+        if (k !== -1) pool.splice(k, 1);
+        out.push(pg);
+      });
+    }
+    return out;
+  }
+  var repeatSet = new Set(repeats);
+  return repairPageFill(arrangeRun(firsts).concat(arrangeRun(repeats)), cap, repeatSet);
+}
+
+/* Tail repair for the arrangement: the greedy fill is
+   myopic — it can strand the last items of a section in
+   2,1,1 pages even when a fuller packing exists. Simulate
+   the real pagination of the arranged order and, while a
+   non-final page holds a single strip, try moving or
+   swapping items (deterministically, best improvement
+   wins) until no such page remains or no move helps.
+   A move is accepted only if the firsts-before-repeats
+   order survives — the target-rotation rule depends on
+   it — and the page profile strictly improves. */
+function repairPageFill(arranged, cap, repeatSet) {
+  function picsOf(it) { return it.options.map(function (o) { return o.e; }); }
+  function simulate(order) {
+    var sizes = [];
+    var curPics = null;
+    var curSize = 0;
+    order.forEach(function (it) {
+      var ps = picsOf(it);
+      var clash = false;
+      if (curPics && curSize < cap) {
+        for (var i = 0; i < ps.length; i++) if (curPics[ps[i]]) { clash = true; break; }
+      }
+      if (!curPics || curSize >= cap || clash) {
+        if (curPics) sizes.push(curSize);
+        curPics = {}; curSize = 0;
+      }
+      ps.forEach(function (p) { curPics[p] = true; });
+      curSize++;
+    });
+    if (curPics) sizes.push(curSize);
+    return sizes;
+  }
+  function score(sizes) {
+    var bad = 0, sq = 0;
+    sizes.forEach(function (n, i) { if (n === 1 && i < sizes.length - 1) bad++; sq += n * n; });
+    return { bad: bad, pages: sizes.length, sq: sq };
+  }
+  function better(a, b) {
+    if (a.bad !== b.bad) return a.bad < b.bad;
+    if (a.pages !== b.pages) return a.pages < b.pages;
+    return a.sq < b.sq;
+  }
+  var order = arranged.slice();
+  var curScore = score(simulate(order));
+  for (var iter = 0; iter < 16 && curScore.bad > 0; iter++) {
+    /* locate the lone item of the first bad page */
+    var sizes = simulate(order);
+    var pos = 0, lonePos = -1;
+    for (var pi = 0; pi < sizes.length - 1; pi++) {
+      if (sizes[pi] === 1) { lonePos = pos; break; }
+      pos += sizes[pi];
+    }
+    if (lonePos === -1) break;
+    var candidates = [];
+    var i, cand;
+    for (i = 0; i < order.length; i++) {           /* swap the lone item with any other */
+      if (i === lonePos) continue;
+      cand = order.slice();
+      var t = cand[lonePos]; cand[lonePos] = cand[i]; cand[i] = t;
+      candidates.push(cand);
+    }
+    for (i = 0; i < order.length; i++) {           /* move any item next to the lone one */
+      if (i === lonePos || i === lonePos + 1) continue;
+      cand = order.slice();
+      var mv = cand.splice(i, 1)[0];
+      cand.splice(i < lonePos ? lonePos : lonePos + 1, 0, mv);
+      candidates.push(cand);
+    }
+    var bestCand = null, bestScore = curScore;
+    candidates.forEach(function (c) {
+      /* firsts-before-repeats guard, by item identity */
+      var seenRep = false, legal = true;
+      for (var k = 0; k < c.length; k++) {
+        if (repeatSet.has(c[k])) seenRep = true;
+        else if (seenRep) { legal = false; break; }
+      }
+      if (!legal) return;
+      var sc = score(simulate(c));
+      if (better(sc, bestScore)) { bestScore = sc; bestCand = c; }
+    });
+    if (!bestCand) break;
+    order = bestCand;
+    curScore = bestScore;
+  }
+  return order;
+}
+
+/* Read & Circle answer-slot balance (audit D3): a plain
+   shuffle let one book put the correct picture in slot 3
+   six times running and never in slot 2 — a child could
+   pattern-guess instead of reading. Deal the correct
+   answers across the three slots as evenly as the count
+   allows (counts differ by at most one, every slot is
+   used), the deal itself shuffled with the book's rng. */
+function balanceCircleAnswerSlots(items, rng) {
+  var circle = (items || []).filter(function (it) { return it.type === 'circle'; });
+  if (circle.length < 2) return;
+  var plan = [];
+  for (var i = 0; i < circle.length; i++) plan.push(i % 3);
+  plan = shuffle(plan, rng);
+  circle.forEach(function (it, k) {
+    var want = plan[k];
+    var cur = -1;
+    it.options.forEach(function (o, j) { if (o.w === it.correct.w) cur = j; });
+    if (cur === -1 || cur === want) return;
+    var tmp = it.options[want];
+    it.options[want] = it.options[cur];
+    it.options[cur] = tmp;
+  });
+}
+
 /* ---------- book data assembly ---------- */
 
 /*
@@ -1098,6 +1293,12 @@ function buildBookData(cfg, C) {
   });
   ctx.requireTarget = false;
 
+  /* page-fill arrangement for Read & Circle sections
+     (audit D1 — see arrangeCircleItems) */
+  sections.forEach(function (s) {
+    if (s.activity.id === 'circle') s.items = arrangeCircleItems(s.items);
+  });
+
   /* sequence step pictures + cover decorations: a picture
      that is one word's unambiguous bank emoji takes that
      word's artwork in the book's one art source (under an
@@ -1141,6 +1342,51 @@ function buildBookData(cfg, C) {
               if (r && r.indexOf('assets/') === 0) return { pic: r, s: st.s };
             }
           }
+          if (artworkPack) {
+            /* composite step pictures (audit D5): a run of
+               glyphs like 🐱🎩 ("The cat has a hat.") never
+               matches a single bank emoji, so it used to
+               stay flat emoji inside the watercolour pack.
+               Split the run into its emoji: a part that is
+               a bank word's picture lends the step that
+               word's artwork (the buyer's own picture for
+               it wins, via decoMap); when several parts are
+               bank words, the step's own sentence names the
+               pictured one. */
+            var clusters = emojiClusters(st.pic);
+            if (clusters.length > 1) {
+              var hit = null;
+              clusters.forEach(function (cl) { if (!hit && decoMap[cl]) hit = decoMap[cl]; });
+              if (hit) return { pic: hit, s: st.s };
+              var cand = [];
+              clusters.forEach(function (cl) {
+                (nounsByEmoji[cl] || []).forEach(function (n) { cand.push(n); });
+              });
+              if (cand.length) {
+                var words2 = sentenceWords(st.s);
+                var named2 = cand.filter(function (n) { return words2.indexOf(n.w) > -1; });
+                var pickN = named2.length === 1 ? named2[0] : (cand.length === 1 ? cand[0] : null);
+                if (pickN) {
+                  var r2 = picFor(C, pack.id, pickN, customPics, ctx.picVariants);
+                  if (r2 && (r2.indexOf('assets/') === 0 || r2.indexOf('data:image/') === 0)) return { pic: r2, s: st.s };
+                }
+              }
+            }
+            /* the reader character (👦 "I see Sam."): no
+               bank word carries that glyph, but the bank's
+               child word carries the book's artwork for a
+               child — the same convention the comprehension
+               scenes use for their character — so the step
+               uses the pack's art instead of a flat emoji
+               wherever the bank has art for it. */
+            if (st.pic === '👦') {
+              var kid = nounByWord(C, 8, 'kid');
+              if (kid) {
+                var kp = picFor(C, pack.id, kid, customPics, ctx.picVariants);
+                if (kp && (kp.indexOf('assets/') === 0 || kp.indexOf('data:image/') === 0)) return { pic: kp, s: st.s };
+              }
+            }
+          }
           return st;
         }
         it.printed = it.printed.map(swap);
@@ -1169,6 +1415,12 @@ function buildBookData(cfg, C) {
       }
     }
   }
+
+  /* answer-slot balance for every Read & Circle strip in
+     the book (audit D3 — see balanceCircleAnswerSlots);
+     runs after the own-sentences merge so strips the
+     buyer added are balanced with the rest */
+  sections.forEach(function (s) { balanceCircleAnswerSlots(s.items, rng); });
 
   var answerKeys = deriveAnswerKeys(sections);
   var cum = C.phsCumulative(level.id);
@@ -1301,6 +1553,8 @@ var PhonicsEngine = {
   contentWithCustomWords: contentWithCustomWords, customDecoMap: customDecoMap,
   parseCustomSentences: parseCustomSentences, makeCustomItems: makeCustomItems,
   buildBookData: buildBookData, finalizeBookData: finalizeBookData, deriveAnswerKeys: deriveAnswerKeys,
+  emojiClusters: emojiClusters, arrangeCircleItems: arrangeCircleItems,
+  balanceCircleAnswerSlots: balanceCircleAnswerSlots,
   formatCircleForEditor: formatCircleForEditor
 };
 
