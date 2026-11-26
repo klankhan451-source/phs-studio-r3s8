@@ -1331,66 +1331,86 @@ function buildBookData(cfg, C) {
     sections.forEach(function (s) {
       s.items.forEach(function (it) {
         if (it.type !== 'seq') return;
-        function swap(st) {
-          if (decoMap[st.pic]) return { pic: decoMap[st.pic], s: st.s };
+        /* Step pictures resolve at STORY level: first the
+           established per-step rules, then a second pass
+           for the steps those rules leave as flat emoji
+           (audit D5). The second pass never gives two
+           steps of one story the same artwork — identical
+           pictures would make the ordering puzzle
+           ambiguous (and the finalize step syncs printed
+           steps to the answer order by picture). */
+        function basicPic(st) {
+          if (decoMap[st.pic]) return decoMap[st.pic];
           var cands = nounsByEmoji[st.pic];
           if (artworkPack && cands && cands.length > 1) {
             var words = sentenceWords(st.s);
             var named = cands.filter(function (n) { return words.indexOf(n.w) > -1; });
             if (named.length === 1) {
               var r = picFor(C, pack.id, named[0], null, ctx.picVariants);
-              if (r && r.indexOf('assets/') === 0) return { pic: r, s: st.s };
+              if (r && r.indexOf('assets/') === 0) return r;
             }
           }
-          if (artworkPack) {
-            /* composite step pictures (audit D5): a run of
-               glyphs like 🐱🎩 ("The cat has a hat.") never
-               matches a single bank emoji, so it used to
-               stay flat emoji inside the watercolour pack.
-               Split the run into its emoji: a part that is
-               a bank word's picture lends the step that
-               word's artwork (the buyer's own picture for
-               it wins, via decoMap); when several parts are
-               bank words, the step's own sentence names the
-               pictured one. */
-            var clusters = emojiClusters(st.pic);
-            if (clusters.length > 1) {
-              var hit = null;
-              clusters.forEach(function (cl) { if (!hit && decoMap[cl]) hit = decoMap[cl]; });
-              if (hit) return { pic: hit, s: st.s };
-              var cand = [];
-              clusters.forEach(function (cl) {
-                (nounsByEmoji[cl] || []).forEach(function (n) { cand.push(n); });
-              });
-              if (cand.length) {
-                var words2 = sentenceWords(st.s);
-                var named2 = cand.filter(function (n) { return words2.indexOf(n.w) > -1; });
-                var pickN = named2.length === 1 ? named2[0] : (cand.length === 1 ? cand[0] : null);
-                if (pickN) {
-                  var r2 = picFor(C, pack.id, pickN, customPics, ctx.picVariants);
-                  if (r2 && (r2.indexOf('assets/') === 0 || r2.indexOf('data:image/') === 0)) return { pic: r2, s: st.s };
-                }
-              }
-            }
-            /* the reader character (👦 "I see Sam."): no
-               bank word carries that glyph, but the bank's
-               child word carries the book's artwork for a
-               child — the same convention the comprehension
-               scenes use for their character — so the step
-               uses the pack's art instead of a flat emoji
-               wherever the bank has art for it. */
-            if (st.pic === '👦') {
-              var kid = nounByWord(C, 8, 'kid');
-              if (kid) {
-                var kp = picFor(C, pack.id, kid, customPics, ctx.picVariants);
-                if (kp && (kp.indexOf('assets/') === 0 || kp.indexOf('data:image/') === 0)) return { pic: kp, s: st.s };
-              }
-            }
-          }
-          return st;
+          return st.pic;
         }
-        it.printed = it.printed.map(swap);
-        it.correctOrder = it.correctOrder.map(swap);
+        function isArt(p) { return !!p && (p.indexOf('assets/') === 0 || p.indexOf('data:image/') === 0); }
+        function secondPic(st, usedPics) {
+          if (!artworkPack) return null;
+          var clusters = emojiClusters(st.pic);
+          if (clusters.length > 1) {
+            /* composite glyph run (🐱🎩 "The cat has a
+               hat."): candidates are the bank words the
+               step's sentence names, in sentence order,
+               then any bank word whose emoji is in the
+               run. The first candidate whose artwork is
+               not already used by another step of this
+               story wins — for the cat story that is the
+               hat: the cat itself is the previous step's
+               picture, the hat is what this step adds. */
+            var cand = [];
+            sentenceWords(st.s).forEach(function (w) {
+              var n = nounByWord(C, 8, w);
+              if (n && cand.indexOf(n) === -1) cand.push(n);
+            });
+            clusters.forEach(function (cl) {
+              (nounsByEmoji[cl] || []).forEach(function (n) {
+                if (cand.indexOf(n) === -1) cand.push(n);
+              });
+            });
+            for (var i = 0; i < cand.length; i++) {
+              var r = picFor(C, pack.id, cand[i], customPics, ctx.picVariants);
+              if (isArt(r) && !usedPics[r]) return r;
+            }
+            return null;
+          }
+          /* the reader character (👦 "I see Sam."): no
+             bank word carries that glyph, but the bank's
+             child word carries the book's artwork for a
+             child — the same convention the comprehension
+             scenes use for their character. */
+          if (st.pic === '👦') {
+            var kid = nounByWord(C, 8, 'kid');
+            if (kid) {
+              var kp = picFor(C, pack.id, kid, customPics, ctx.picVariants);
+              if (isArt(kp) && !usedPics[kp]) return kp;
+            }
+          }
+          return null;
+        }
+        var resolved = {};
+        var usedPics = {};
+        it.correctOrder.forEach(function (st) {
+          var p = basicPic(st);
+          resolved[st.s] = p;
+          if (isArt(p)) usedPics[p] = true;
+        });
+        it.correctOrder.forEach(function (st) {
+          if (resolved[st.s] !== st.pic) return; /* basic pass resolved it */
+          var alt = secondPic(st, usedPics);
+          if (alt) { resolved[st.s] = alt; usedPics[alt] = true; }
+        });
+        function applyStep(st) { return { pic: resolved[st.s] || st.pic, s: st.s }; }
+        it.printed = it.printed.map(applyStep);
+        it.correctOrder = it.correctOrder.map(applyStep);
       });
     });
   }
@@ -1495,8 +1515,18 @@ function finalizeBookData(C, data) {
           item.choices = shuffle([noun.w].concat(ds.map(function (x) { return x.w; })), rng);
         }
       } else if (item.type === 'seq') {
+        /* match each printed step to a correct-order step
+           by picture, consuming each match — two steps of
+           one story can share a picture (buyer uploads,
+           resolved artwork), and reusing the first match
+           for both would print one step's sentence twice
+           and lose the other entirely */
+        var usedSteps = {};
         item.printed = item.printed.map(function (p) {
-          var match = item.correctOrder.filter(function (st) { return st.pic === p.pic; })[0];
+          var match = null;
+          item.correctOrder.forEach(function (st, si) {
+            if (!match && !usedSteps[si] && st.pic === p.pic) { match = st; usedSteps[si] = true; }
+          });
           return match ? { pic: p.pic, s: match.s } : p;
         });
       }
